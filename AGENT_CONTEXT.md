@@ -33,6 +33,8 @@ This is an Alpha prototype for the SIH internal selection round. Everything belo
 | Feasibility constraints  | Laycan timing window only                                         | Demurrage, sanctions, flag-state, IMO CII, EEXI screening    |
 | Counterfactual simulator | Two sliders: freight rate crash, fuel price shock                 | Full three-variable simulator including port congestion       |
 | Data                     | Free public proxies + calibrated synthetic freight series          | Licensed Baltic Exchange feed                                 |
+| Seasonal awareness       | Hardcoded seasonal pressure calendar (harvest cycles, monsoon, procurement peaks) | Live meteorological API for operational-layer weather decisions |
+| Geopolitical shocks      | Not in Alpha                                                       | Sanctions/canal disruption detection and scenario modeling     |
 
 ---
 
@@ -65,6 +67,7 @@ This is an Alpha prototype for the SIH internal selection round. Everything belo
 
 **Feature engineering targets:**
 - AutoARIMA point forecast for the same horizon step (the ensemble bridge)
+- Seasonal pressure index (hardcoded domain calendar, see section 3.2.1 below)
 - Lagged bunker fuel prices (USDA)
 - Crude oil price trends and momentum (FRED Brent/WTI)
 - Supply chain pressure index (NY Fed GSCPI)
@@ -72,6 +75,29 @@ This is an Alpha prototype for the SIH internal selection round. Everything belo
 - Calendar features (month, day-of-week, seasonal dummies)
 - Rolling statistics (7d, 14d, 30d rolling means and volatilities)
 - Rolling volatility (7d, 14d, 30d standard deviations) for implicit regime awareness
+
+#### 3.2.1 Seasonal Pressure Calendar (Hardcoded)
+
+A domain-informed lookup that maps each month to a seasonal pressure score reflecting known dry bulk demand drivers. This is not a learned feature; it encodes expert knowledge about cyclical patterns that affect vessel availability and freight rates for coking coal imports to India's East Coast.
+
+| Month   | Pressure | Primary Driver                                                                 |
+|---------|----------|--------------------------------------------------------------------------------|
+| Jan     | High     | Southern Hemisphere grain harvest begins (Australia, Argentina). Chinese pre-New Year steel restocking. |
+| Feb     | High     | Grain shipments peak. Chinese New Year disruption (demand lull then surge).    |
+| Mar     | Medium   | Grain harvest tailing off. End of Q1 steel production cycle.                   |
+| Apr     | Low      | Shoulder season. Vessel availability improves.                                 |
+| May     | Low      | Pre-monsoon calm. Lowest seasonal freight pressure.                            |
+| Jun     | Medium   | Indian monsoon onset. East Coast port throughput begins to drop (Paradip, Vizag, Haldia). |
+| Jul     | High     | Monsoon peak. Northern Hemisphere grain harvest begins (US, Canada). Dual pressure on vessel supply. |
+| Aug     | High     | Monsoon continues. US/Canada grain shipments compete for Panamax/Supramax tonnage. |
+| Sep     | High     | Monsoon tail. Northern grain harvest peak. Highest seasonal competition for vessels from our origin ports. |
+| Oct     | High     | Peak coking coal procurement season. Steel mills ramp for Q1 demand. Indian ports recovering from monsoon backlog. |
+| Nov     | Medium   | Procurement continues. Pre-winter demand in Northern Hemisphere.               |
+| Dec     | Medium   | Procurement tails off. Holiday slowdowns in Western markets.                   |
+
+**Implementation:** A simple dictionary mapping `month -> float` (0.0 to 1.0 scale, normalized). Fed directly as a feature column to LightGBM. The model learns the interaction between seasonal pressure and the other market signals.
+
+**Why hardcoded, not learned:** With only 5 years of training data, there are at most 5 observations per month. LightGBM cannot reliably learn seasonal patterns from that alone. Encoding domain knowledge as a prior gives the model a head start. If the pattern does not hold, the model will assign it low feature importance, which is itself a useful finding for the pitch.
 
 ### 3.3 Forecaster-to-Solver API Contract
 
