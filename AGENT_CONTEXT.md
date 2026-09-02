@@ -25,7 +25,7 @@ This is an Alpha prototype for the SIH internal selection round. Everything belo
 
 | Component               | Alpha Scope                                                       | Deferred to Beta                                              |
 |--------------------------|-------------------------------------------------------------------|---------------------------------------------------------------|
-| Forecasting model        | LightGBM only, three quantile models (P10, P50, P90)             | Temporal Fusion Transformer, AutoARIMA, multi-model bake-off  |
+| Forecasting model        | LightGBM quantile (P10, P50, P90) + AutoARIMA statistical baseline; AutoARIMA point forecast fed as feature into LightGBM | Temporal Fusion Transformer, FARIMA, full multi-model bake-off |
 | Problem size             | Hardcoded 5 vessels, 10 routes, 30-day horizon                    | Realistic fleet-scale problem sizing, re-benchmarked          |
 | Solver                   | Deterministic MILP, one global Big-M, CBC via PuLP or OR-Tools   | Per-constraint tightened Big-M, commercial solver evaluation  |
 | Risk treatment           | Downside penalty on P50-to-P10 gap                                | Formal CVaR with scenario generation                          |
@@ -53,17 +53,25 @@ This is an Alpha prototype for the SIH internal selection round. Everything belo
 
 ### 3.2 Forecaster (Tech Lead 1 owns this)
 
-**Model:** Three separate LightGBM regressors, each with `objective='quantile'` and `alpha` set to 0.1, 0.5, and 0.9 respectively. This is a native LightGBM objective. No custom loss function needed. No single model with post-hoc uncertainty retrofit.
+**Dual-model architecture:**
+
+1. **AutoARIMA (statistical baseline).** Trained via `pmdarima` on the freight rate series alone. Produces a point forecast for each horizon step. Serves two purposes: (a) a standalone baseline to benchmark LightGBM against in Phase 4, and (b) an input feature to LightGBM so the ML model can learn when to trust or override the statistical forecast.
+
+2. **LightGBM (primary ML model, sole quantile producer).** Three separate regressors with `objective='quantile'` and `alpha` set to 0.1, 0.5, and 0.9. These are native LightGBM objectives. No custom loss function. LightGBM receives the AutoARIMA point forecast as one of its input features, creating a principled model combination without the methodological problems of blending parametric (ARIMA Gaussian intervals) and non-parametric (LightGBM quantile) uncertainty estimates.
+
+**Why LightGBM remains the sole quantile producer:** AutoARIMA prediction intervals assume Gaussian residuals. LightGBM quantiles are distribution-free. Naively averaging their P10s would blend incompatible uncertainty paradigms. Instead, AutoARIMA's point forecast flows into LightGBM as a feature, and LightGBM learns the combination internally through its tree structure.
 
 **Horizon:** 30-day forecast. Direct multi-step forecasting (train a model per horizon step to predict from current features directly), not recursive forecasting. Recursive compounds error across 30 steps and is hard to tune on a compressed timeline.
 
 **Feature engineering targets:**
+- AutoARIMA point forecast for the same horizon step (the ensemble bridge)
 - Lagged bunker fuel prices (USDA)
 - Crude oil price trends and momentum (FRED Brent/WTI)
 - Supply chain pressure index (NY Fed GSCPI)
 - Commodity price proxies for demand signals (World Bank Pink Sheet)
 - Calendar features (month, day-of-week, seasonal dummies)
 - Rolling statistics (7d, 14d, 30d rolling means and volatilities)
+- Rolling volatility (7d, 14d, 30d standard deviations) for implicit regime awareness
 
 ### 3.3 Forecaster-to-Solver API Contract
 
@@ -133,7 +141,7 @@ This penalizes assignments where the gap between expected and worst-plausible-ca
 
 ```
 SIH-26006-Intelligent-Freight--Forecasting/
-├── AGENT_CONTEXT.md          # This file (do not commit)
+├── AGENT_CONTEXT.md          # This file (living project context)
 ├── CONTRACT.md               # Forecaster-to-solver JSON schema contract
 ├── LICENSE
 ├── requirements.txt          # Python dependencies
@@ -145,7 +153,7 @@ SIH-26006-Intelligent-Freight--Forecasting/
 │       └── freight_forecast_30d.json  # The contract artifact (currently dummy)
 ├── src/                      # [Phase 1+] Source code
 │   ├── data/                 # Data ingestion and feature engineering
-│   ├── forecaster/           # LightGBM quantile models
+│   ├── forecaster/           # AutoARIMA baseline + LightGBM quantile models
 │   ├── solver/               # MILP solver
 │   ├── risk/                 # Risk scoring module
 │   └── ui/                   # Streamlit app
@@ -166,9 +174,9 @@ Every phase after Phase 1 assumes continuous integration: the moment a real numb
 | Phase | Days   | Focus                              | End-of-Phase Checkpoint                                                                                     |
 |-------|--------|------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | 1     | 1-3    | Contracts, data, floor deliverable | Button click returns a vessel-route assignment on screen, using placeholder constant rate. Ugly but real and running end to end. |
-| 2     | 4-7    | Real forecasts, integrated as they land | Phase 1 pipeline runs on real LightGBM quantile output instead of placeholder.                             |
+| 2     | 4-7    | Real forecasts, integrated as they land | AutoARIMA baseline trained. LightGBM quantile models trained with AutoARIMA feature. Pipeline runs on real output. |
 | 3     | 8-10   | Risk scoring and interactive UI    | A judge can move a slider and watch the assignment change live, with real or transparently labeled proxy numbers. |
-| 4     | 11-13  | Backtest                           | One profit-uplift number, against two or three named baselines, over a disclosed time window.               |
+| 4     | 11-13  | Backtest                           | Profit-uplift number against baselines. Model comparison: AutoARIMA vs LightGBM vs LightGBM+AutoARIMA. Segmented by volatility regime. |
 | 5     | 14-16  | Hardening and real buffer          | Offline container runs clean, or the descope ladder has been applied and the core pipeline still works.      |
 | 6     | 17-18  | Freeze and rehearse                | Code frozen morning of Day 17. Full run-throughs completed.                                                  |
 
@@ -197,6 +205,7 @@ Every phase after Phase 1 assumes continuous integration: the moment a real numb
 | Tier | Cut These First                                                      | Why It Is Safe to Cut                                              |
 |------|----------------------------------------------------------------------|--------------------------------------------------------------------|
 | 1    | Second what-if slider (keep freight shock only), visual polish, trim backtest baselines from three to two | None of these change what the system proves. They change presentation. |
+| 1.5  | Drop AutoARIMA baseline and feature; LightGBM runs standalone        | AutoARIMA is a rigour add-on. The core pipeline works without it. Cut it before cutting quantile models. |
 | 2    | Drop P90 quantile model, keep P10 and P50 only                       | The downside-penalty formula only needs P10 and P50. P90 is presentation depth. |
 | 3    | **Never cut:** The forecaster-to-solver-to-UI pipeline itself         | Real numbers, one risk adjustment, one working slider. That pipeline is the entire thesis. |
 
@@ -206,7 +215,7 @@ Every phase after Phase 1 assumes continuous integration: the moment a real numb
 
 | Role                     | Primary Responsibility                                        | Key Checkpoint Owned                                 |
 |--------------------------|---------------------------------------------------------------|------------------------------------------------------|
-| Tech Lead 1 (Backend/ML) | LightGBM quantile models, feature engineering, forecast API   | Phase 2: real forecasts replace the placeholder      |
+| Tech Lead 1 (Backend/ML) | AutoARIMA baseline, LightGBM quantile models, feature engineering, forecast API | Phase 2: real forecasts replace the placeholder      |
 | Tech Lead 2 (Solver/UI)  | MILP solver, downside-penalty scoring, interactive frontend   | Phase 1 and Phase 3: floor deliverable, then live sliders |
 | Researcher 1 (Data)      | Secures proxy and target-variable data, feature eng support   | Phase 1: data plan executed by Day 3                 |
 | Researcher 2 (Domain)    | Fixed vessel and route parameters, laycan windows             | Phase 1 and Phase 2: parameter matrix frozen, laycans finalized |
@@ -223,6 +232,8 @@ Every phase after Phase 1 assumes continuous integration: the moment a real numb
 | Is this live Baltic Exchange data? | No. We use free public proxies plus a calibrated synthetic series matching real BDI ranges. Direct licensing runs thousands of pounds per year. We validated the pipeline on a transparent proxy while the licensing conversation is already open. |
 | Why only 5 vessels and 10 routes?  | Deliberate Alpha scope decision to guarantee a live, responsive demo without needing a commercial solver. The solver scales; the demo is deliberately small. |
 | What happens with a real fleet?    | Point to the Beta roadmap: per-constraint Big-M tightening, re-benchmarked solve time, commercial-solver evaluation if needed. |
+| Why both ARIMA and LightGBM?       | AutoARIMA captures linear time-series structure; LightGBM captures nonlinear feature interactions. We feed AutoARIMA's forecast as a feature into LightGBM so the ML model learns when to trust or override the statistical baseline. Backtest proves whether the combination adds value. |
+| How do you handle different market regimes? | Rolling volatility features let LightGBM split on regime implicitly. We segment backtest results by high- and low-volatility windows to validate performance is not regime-dependent. |
 
 ---
 
@@ -287,7 +298,7 @@ Subject to:
 ### File Naming
 - Snake_case for Python files
 - Data files: `{source}_{frequency}_{description}.csv`
-- Model artifacts: `lgb_q{quantile}_{version}.pkl`
+- Model artifacts: `lgb_q{quantile}_{version}.pkl`, `arima_{version}.pkl`
 
 ---
 
@@ -326,6 +337,7 @@ lightgbm==4.3.0
 pandas==2.2.1
 scikit-learn==1.4.1.post1
 numpy==1.26.4
+pmdarima>=2.0              # AutoARIMA statistical baseline
 
 # Solver (to be added Phase 1)
 pulp>=2.7
@@ -352,3 +364,6 @@ matplotlib>=3.8
 5. **The floor deliverable (Phase 1, Day 3) is non-negotiable.** An ugly working pipeline beats a beautiful broken one. The team walks into the judged round with something that runs.
 6. **Lambda (λ) in the risk formula starts at 0.5.** It is a tunable parameter exposed in the UI, not a hardcoded constant.
 7. **5 vessels, 10 routes is deliberate.** Do not expand the problem size in Alpha. The solver must respond instantly during the live demo.
+8. **LightGBM is the sole quantile producer.** AutoARIMA provides a point forecast feature, not quantile forecasts. Do not average or blend AutoARIMA prediction intervals with LightGBM quantiles.
+9. **AutoARIMA is on the descope ladder.** If Phase 2 runs long, cut AutoARIMA first. The core pipeline works with LightGBM alone.
+10. **Measure both forecast metrics and business metrics.** RMSE/MAE for forecast accuracy. Profit uplift and downside risk reduction for business value. Lead with business metrics in the pitch.
