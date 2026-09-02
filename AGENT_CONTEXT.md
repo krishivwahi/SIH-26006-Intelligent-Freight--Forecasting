@@ -34,7 +34,9 @@ This is an Alpha prototype for the SIH internal selection round. Everything belo
 | Counterfactual simulator | Two sliders: freight rate crash, fuel price shock                 | Full three-variable simulator including port congestion       |
 | Data                     | Free public proxies + calibrated synthetic freight series          | Licensed Baltic Exchange feed                                 |
 | Seasonal awareness       | Hardcoded seasonal pressure calendar (harvest cycles, monsoon, procurement peaks) | Live meteorological API for operational-layer weather decisions |
+| Explainability           | SHAP waterfall charts per assignment showing feature contributions | Full model audit dashboard with global and local explanations  |
 | Geopolitical shocks      | Not in Alpha                                                       | Sanctions/canal disruption detection and scenario modeling     |
+| Chartering strategy      | Single-stage deterministic assignment                              | Two-stage adaptive re-optimization; explicit advance-vs-spot charter decision modeling |
 
 ---
 
@@ -48,6 +50,8 @@ This is an Alpha prototype for the SIH internal selection round. Everything belo
 |---------------------------|---------------------------------------------|----------------|-------------------------------------------------------------------|
 | Fuel cost baseline        | USDA Daily Bunker Fuel Prices (agtransport.usda.gov) | Free, no signup | IFO380, IFO180, Marine Gas Oil across 20+ ports                 |
 | Crude oil trend feature   | FRED series DCOILBRENTEU and DCOILWTICO     | Free           | Daily Brent and WTI. Leading indicator for bunker cost feature   |
+| Global economic activity  | FRED series SP500                           | Free           | Daily S&P 500. Proxy for global economic health and trade demand |
+| USD strength              | FRED series DTWEXBGS                        | Free           | Trade-weighted US Dollar Index. Freight is USD-denominated; dollar strength affects rate dynamics |
 | Global freight stress     | NY Fed Global Supply Chain Pressure Index   | Free           | Monthly. Genuine freight-market stress signal                     |
 | Commodity demand proxies  | World Bank Commodity Price Data (Pink Sheet) | Free, monthly  | Iron ore, coal, grain prices. Demand-side features               |
 
@@ -70,8 +74,10 @@ This is an Alpha prototype for the SIH internal selection round. Everything belo
 - Seasonal pressure index (hardcoded domain calendar, see section 3.2.1 below)
 - Lagged bunker fuel prices (USDA)
 - Crude oil price trends and momentum (FRED Brent/WTI)
+- S&P 500 level and momentum (FRED, global economic activity proxy)
+- US Dollar Index and momentum (FRED DTWEXBGS, currency strength affects USD-denominated freight rates)
 - Supply chain pressure index (NY Fed GSCPI)
-- Commodity price proxies for demand signals (World Bank Pink Sheet)
+- Commodity price proxies for demand signals (World Bank Pink Sheet: iron ore, coal, grain)
 - Calendar features (month, day-of-week, seasonal dummies)
 - Rolling statistics (7d, 14d, 30d rolling means and volatilities)
 - Rolling volatility (7d, 14d, 30d standard deviations) for implicit regime awareness
@@ -153,6 +159,7 @@ This penalizes assignments where the gap between expected and worst-plausible-ca
 1. Optimal vessel-route assignment table (solver output)
 2. 30-day forecast visualization with P10/P50/P90 bands
 3. Risk score breakdown per assignment
+4. SHAP waterfall chart per selected assignment ("why did the model predict this rate?")
 
 **Counterfactual simulator (two sliders):**
 - Freight rate crash slider (% shock to all P50 rates)
@@ -231,7 +238,7 @@ Every phase after Phase 1 assumes continuous integration: the moment a real numb
 | Tier | Cut These First                                                      | Why It Is Safe to Cut                                              |
 |------|----------------------------------------------------------------------|--------------------------------------------------------------------|
 | 1    | Second what-if slider (keep freight shock only), visual polish, trim backtest baselines from three to two | None of these change what the system proves. They change presentation. |
-| 1.5  | Drop AutoARIMA baseline and feature; LightGBM runs standalone        | AutoARIMA is a rigour add-on. The core pipeline works without it. Cut it before cutting quantile models. |
+| 1.5  | Drop SHAP panel; drop AutoARIMA baseline and feature; LightGBM runs standalone | SHAP is a presentation add-on. AutoARIMA is a rigour add-on. Core pipeline works without either. |
 | 2    | Drop P90 quantile model, keep P10 and P50 only                       | The downside-penalty formula only needs P10 and P50. P90 is presentation depth. |
 | 3    | **Never cut:** The forecaster-to-solver-to-UI pipeline itself         | Real numbers, one risk adjustment, one working slider. That pipeline is the entire thesis. |
 
@@ -260,6 +267,8 @@ Every phase after Phase 1 assumes continuous integration: the moment a real numb
 | What happens with a real fleet?    | Point to the Beta roadmap: per-constraint Big-M tightening, re-benchmarked solve time, commercial-solver evaluation if needed. |
 | Why both ARIMA and LightGBM?       | AutoARIMA captures linear time-series structure; LightGBM captures nonlinear feature interactions. We feed AutoARIMA's forecast as a feature into LightGBM so the ML model learns when to trust or override the statistical baseline. Backtest proves whether the combination adds value. |
 | How do you handle different market regimes? | Rolling volatility features let LightGBM split on regime implicitly. We segment backtest results by high- and low-volatility windows to validate performance is not regime-dependent. |
+| How do you explain the model's decisions? | SHAP (SHapley Additive exPlanations) on LightGBM shows exactly which features pushed each prediction up or down. The UI displays a waterfall chart per assignment so a chartering manager can see, for example, "iron ore prices rising +$1.20, monsoon season +$0.80, USD weakening +$0.40" rather than a black-box number. |
+| Why not re-optimize when new data arrives? | Alpha runs a single-stage deterministic optimization. Beta adds two-stage adaptive re-optimization: run the solver weekly, compare the new assignment against the previous one, and recommend changes only when uplift exceeds a switching cost threshold. |
 
 ---
 
@@ -338,7 +347,7 @@ Subject to:
 - [x] Dummy forecast JSON artifact generated (data/interim/freight_forecast_30d.json)
 - [x] Core ML dependencies declared (requirements.txt)
 - [ ] Vessel-route parameter matrix frozen (Researcher 2)
-- [ ] Raw proxy data pulled for all four sources (Researcher 1)
+- [ ] Raw proxy data pulled for all six sources (Researcher 1: USDA bunker, FRED crude, FRED S&P 500, FRED DXY, NY Fed GSCPI, World Bank Pink Sheet)
 - [ ] Target variable approach decided: synthetic vs partial-real (Researcher 1)
 - [ ] Repo scaffolded with full directory structure (Researcher 3)
 - [ ] Minimal Dockerfile created (Researcher 3)
@@ -348,8 +357,19 @@ Subject to:
 - [ ] End-to-end pipeline runs on dummy data (all)
 
 ### Phase 2: Real Forecasts — NOT STARTED
+- [ ] AutoARIMA trained on freight rate series (Tech Lead 1)
+- [ ] LightGBM quantile models trained with all features including AutoARIMA forecast (Tech Lead 1)
+- [ ] SHAP integration: generate feature contribution values per prediction (Tech Lead 1)
+- [ ] Real forecasts replace dummy JSON in pipeline (Tech Lead 1 + Tech Lead 2)
+
 ### Phase 3: Risk Scoring and Interactive UI — NOT STARTED
+- [ ] SHAP waterfall chart panel added to Streamlit UI (Tech Lead 2 + Researcher 3)
+
 ### Phase 4: Backtest — NOT STARTED
+- [ ] Evaluate with MAE, RMSE, and R² (Tech Lead 1)
+- [ ] Compare: AutoARIMA alone vs LightGBM alone vs LightGBM+AutoARIMA (Tech Lead 1)
+- [ ] Segment results by high- and low-volatility regimes (Tech Lead 1)
+- [ ] Business metrics: profit uplift and downside risk reduction vs baselines (Tech Lead 1 + Tech Lead 2)
 ### Phase 5: Hardening — NOT STARTED
 ### Phase 6: Freeze and Rehearse — NOT STARTED
 
@@ -364,6 +384,7 @@ pandas==2.2.1
 scikit-learn==1.4.1.post1
 numpy==1.26.4
 pmdarima>=2.0              # AutoARIMA statistical baseline
+shap>=0.45                 # SHAP explainability for LightGBM
 
 # Solver (to be added Phase 1)
 pulp>=2.7
@@ -392,4 +413,6 @@ matplotlib>=3.8
 7. **5 vessels, 10 routes is deliberate.** Do not expand the problem size in Alpha. The solver must respond instantly during the live demo.
 8. **LightGBM is the sole quantile producer.** AutoARIMA provides a point forecast feature, not quantile forecasts. Do not average or blend AutoARIMA prediction intervals with LightGBM quantiles.
 9. **AutoARIMA is on the descope ladder.** If Phase 2 runs long, cut AutoARIMA first. The core pipeline works with LightGBM alone.
-10. **Measure both forecast metrics and business metrics.** RMSE/MAE for forecast accuracy. Profit uplift and downside risk reduction for business value. Lead with business metrics in the pitch.
+10. **Measure both forecast metrics and business metrics.** RMSE/MAE/R² for forecast accuracy. Profit uplift and downside risk reduction for business value. Lead with business metrics in the pitch.
+11. **SHAP runs on LightGBM only.** Use `shap.TreeExplainer` for speed. Generate per-prediction waterfall data during forecast, store alongside the JSON contract for the UI to read.
+12. **Six data sources, not four.** S&P 500 (FRED SP500) and US Dollar Index (FRED DTWEXBGS) are now part of the feature set. Researcher 1 must pull these alongside the original four.
