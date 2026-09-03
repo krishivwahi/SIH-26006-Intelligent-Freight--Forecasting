@@ -25,7 +25,9 @@ This is an Alpha prototype for the SIH internal selection round. Everything belo
 
 | Component               | Alpha Scope                                                       | Deferred to Beta                                              |
 |--------------------------|-------------------------------------------------------------------|---------------------------------------------------------------|
-| Forecasting model        | LightGBM quantile (P10, P50, P90) + AutoARIMA statistical baseline; AutoARIMA point forecast fed as feature into LightGBM | Temporal Fusion Transformer, FARIMA, full multi-model bake-off |
+| Forecasting model        | LightGBM quantile (P10, P50, P90) + AutoARIMA statistical baseline; AutoARIMA point forecast fed as feature into LightGBM | Temporal Fusion Transformer, FARIMA, GPR, full multi-model bake-off |
+| Signal decomposition     | Not in Alpha (rolling stats at multiple windows serve as implicit decomposition) | CEEMDAN decomposition of freight series into trend + volatility IMFs before forecasting |
+| Hyperparameter tuning    | LightGBM defaults with manual lambda tuning                       | Bayesian Optimization for LightGBM and model hyperparameters  |
 | Problem size             | Hardcoded 5 vessels, 10 routes, 30-day horizon                    | Realistic fleet-scale problem sizing, re-benchmarked          |
 | Solver                   | Deterministic MILP, one global Big-M, CBC via PuLP or OR-Tools   | Per-constraint tightened Big-M, commercial solver evaluation  |
 | Risk treatment           | Downside penalty on P50-to-P10 gap                                | Formal CVaR with scenario generation                          |
@@ -160,6 +162,7 @@ This penalizes assignments where the gap between expected and worst-plausible-ca
 2. 30-day forecast visualization with P10/P50/P90 bands
 3. Risk score breakdown per assignment
 4. SHAP waterfall chart per selected assignment ("why did the model predict this rate?")
+5. Forecast direction and volatility indicators per route (derived from P10/P50/P90, no model change needed)
 
 **Counterfactual simulator (two sliders):**
 - Freight rate crash slider (% shock to all P50 rates)
@@ -366,7 +369,7 @@ Subject to:
 - [ ] SHAP waterfall chart panel added to Streamlit UI (Tech Lead 2 + Researcher 3)
 
 ### Phase 4: Backtest — NOT STARTED
-- [ ] Evaluate with MAE, RMSE, and R² (Tech Lead 1)
+- [ ] Evaluate with MAE, RMSE, R², and directional accuracy (Tech Lead 1)
 - [ ] Compare: AutoARIMA alone vs LightGBM alone vs LightGBM+AutoARIMA (Tech Lead 1)
 - [ ] Segment results by high- and low-volatility regimes (Tech Lead 1)
 - [ ] Business metrics: profit uplift and downside risk reduction vs baselines (Tech Lead 1 + Tech Lead 2)
@@ -413,6 +416,8 @@ matplotlib>=3.8
 7. **5 vessels, 10 routes is deliberate.** Do not expand the problem size in Alpha. The solver must respond instantly during the live demo.
 8. **LightGBM is the sole quantile producer.** AutoARIMA provides a point forecast feature, not quantile forecasts. Do not average or blend AutoARIMA prediction intervals with LightGBM quantiles.
 9. **AutoARIMA is on the descope ladder.** If Phase 2 runs long, cut AutoARIMA first. The core pipeline works with LightGBM alone.
-10. **Measure both forecast metrics and business metrics.** RMSE/MAE/R² for forecast accuracy. Profit uplift and downside risk reduction for business value. Lead with business metrics in the pitch.
+10. **Measure both forecast metrics and business metrics.** RMSE/MAE/R²/directional accuracy for forecast accuracy. Profit uplift and downside risk reduction for business value. Lead with business metrics in the pitch.
 11. **SHAP runs on LightGBM only.** Use `shap.TreeExplainer` for speed. Generate per-prediction waterfall data during forecast, store alongside the JSON contract for the UI to read.
 12. **Six data sources, not four.** S&P 500 (FRED SP500) and US Dollar Index (FRED DTWEXBGS) are now part of the feature set. Researcher 1 must pull these alongside the original four.
+13. **Directional accuracy is a first-class metric.** Chartering managers care about "will rates go up or down?" as much as exact rate values. Measure it in backtest, display it in the pitch. Formula: `DA = count(sign(predicted_change) == sign(actual_change)) / total`.
+14. **Direction and volatility labels are derived, not modeled.** Direction = P50(t+1) > P50(t). Volatility = P90 - P10 spread. Risk label = High/Medium/Low based on spread thresholds. These are post-processing on existing quantile outputs, not new models.
