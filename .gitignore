@@ -1,0 +1,68 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+*.egg-link
+pip-wheel-metadata/
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# ── Pytest / coverage ─────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Model artifacts (large binaries — managed separately) ────────────────────
+models/*.pkl
+models/*.joblib
+models/*.bin
+
+# ── Data — keep directory structure, ignore generated/downloaded files ─────────
+data/raw/*
+data/processed/*
+data/interim/freight_forecast_30d.json
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/interim/.gitkeep
+
+# ── OS artefacts ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Streamlit ─────────────────────────────────────────────────────────────────
+.streamlit/secrets.toml
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/

@@ -1,0 +1,42 @@
+# .dockerignore — prevents COPY . . from bloating the Docker image
+# Without this, docker build copies .venv (~300 MB) into every layer.
+
+# Virtual environment — packages are reinstalled inside the container
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Git history
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Tests (not needed at runtime)
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Notebooks
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# Model artifacts (bake in separately in Phase 5)
+models/

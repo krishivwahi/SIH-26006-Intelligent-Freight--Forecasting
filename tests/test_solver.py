@@ -1,0 +1,177 @@
+"""
+tests/test_solver.py
+
+Unit tests for the Phase 1 placeholder solver.
+
+These tests verify solver mechanics BEFORE any real forecast data exists.
+They must remain green throughout Phase 1 and must not be broken by
+the Day 2 real-parameter swap or Day 3 real-forecast swap.
+"""
+from __future__ import annotations
+
+import json
+import tempfile
+from datetime import date, timedelta
+from pathlib import Path
+
+import pytest
+
+from src.solver.risk import compute_score, compute_scores_bulk
+from src.solver.solver import AssignmentResult, solve
+
+
+# ── Fixtures ───────────────────────────────────────────────────────────────────
+
+@pytest.fixture()
+def dummy_forecast_path(tmp_path: Path) -> Path:
+    """Generate a minimal but complete dummy forecast JSON in a temp dir.
+
+    Mirrors dummy_generator.py but is self-contained for test isolation.
+    5 vessels × 10 routes × 30 days = 1,500 records.
+    """
+    vessels = [f"V-00{i}" for i in range(1, 6)]
+    routes = [f"R-{i:02d}" for i in range(1, 11)]
+    base_date = date.today()
+    records = []
+    for day_offset in range(30):
+        date_str = (base_date + timedelta(days=day_offset)).strftime("%Y-%m-%d")
+        for rid in routes:
+            for vid in vessels:
+                records.append(
+                    {
+                        "date_index": date_str,
+                        "vessel_id": vid,
+                        "route_id": rid,
+                        "p10_rate": 16.0,
+                        "p50_rate": 20.0,
+                        "p90_rate": 26.0,
+                    }
+                )
+    filepath = tmp_path / "freight_forecast_30d.json"
+    filepath.write_text(json.dumps(records), encoding="utf-8")
+    return filepath
+
+
+# ── Risk score unit tests ──────────────────────────────────────────────────────
+
+class TestComputeScore:
+    def test_formula_correctness(self) -> None:
+        """Score = P50 - λ*(P50 - P10). With p50=20, p10=16, λ=0.5 → 18.0"""
+        assert compute_score(p50=20.0, p10=16.0, lam=0.5) == pytest.approx(18.0)
+
+    def test_lambda_zero_returns_p50(self) -> None:
+        """λ=0 means no risk penalty — score equals the median rate."""
+        assert compute_score(p50=20.0, p10=16.0, lam=0.0) == pytest.approx(20.0)
+
+    def test_lambda_one_returns_p10(self) -> None:
+        """λ=1 means maximise worst-case floor — score equals P10."""
+        assert compute_score(p50=20.0, p10=16.0, lam=1.0) == pytest.approx(16.0)
+
+    def test_equal_quantiles_returns_rate(self) -> None:
+        """When P10 == P50 (zero uncertainty), score equals that rate."""
+        assert compute_score(p50=20.0, p10=20.0, lam=0.5) == pytest.approx(20.0)
+
+    def test_invalid_lambda_raises(self) -> None:
+        with pytest.raises(ValueError, match="λ must be in"):
+            compute_score(p50=20.0, p10=16.0, lam=1.5)
+
+    def test_quantile_inversion_raises(self) -> None:
+        """p10 > p50 violates quantile ordering and must raise."""
+        with pytest.raises(ValueError, match="Quantile ordering violated"):
+            compute_score(p50=15.0, p10=20.0, lam=0.5)
+
+    def test_bulk_scores_count(self) -> None:
+        """compute_scores_bulk should return one score per record."""
+        records = [
+            {"vessel_id": "V-001", "route_id": "R-01", "date_index": "2026-09-03",
+             "p10_rate": 16.0, "p50_rate": 20.0, "p90_rate": 26.0},
+            {"vessel_id": "V-002", "route_id": "R-02", "date_index": "2026-09-03",
+             "p10_rate": 14.0, "p50_rate": 18.0, "p90_rate": 24.0},
+        ]
+        scores = compute_scores_bulk(records, lam=0.5)
+        assert len(scores) == 2
+        assert scores[("V-001", "R-01", "2026-09-03")] == pytest.approx(18.0)
+
+
+# ── Solver integration tests ───────────────────────────────────────────────────
+
+class TestSolver:
+    def test_solver_returns_optimal_status(self, dummy_forecast_path: Path) -> None:
+        """Solver must find an optimal solution on well-formed dummy data."""
+        result = solve(lam=0.5, forecast_path=dummy_forecast_path)
+        assert result.solver_status == "Optimal", (
+            f"Expected 'Optimal', got '{result.solver_status}'. "
+            "Check that laycan windows in parameters.py are within the 30-day horizon."
+        )
+
+    def test_solver_returns_assignment_result_type(self, dummy_forecast_path: Path) -> None:
+        result = solve(lam=0.5, forecast_path=dummy_forecast_path)
+        assert isinstance(result, AssignmentResult)
+
+    def test_positive_objective_value(self, dummy_forecast_path: Path) -> None:
+        """With positive rates, objective must be positive."""
+        result = solve(lam=0.5, forecast_path=dummy_forecast_path)
+        assert result.objective_value > 0.0
+
+    def test_no_vessel_double_assigned(self, dummy_forecast_path: Path) -> None:
+        """Each vessel may appear in at most one assignment (Constraint 1)."""
+        result = solve(lam=0.5, forecast_path=dummy_forecast_path)
+        vessel_ids = [a["vessel_id"] for a in result.assignments]
+        assert len(vessel_ids) == len(set(vessel_ids)), (
+            f"Vessel(s) appear more than once: "
+            f"{[v for v in vessel_ids if vessel_ids.count(v) > 1]}"
+        )
+
+    def test_no_route_day_double_served(self, dummy_forecast_path: Path) -> None:
+        """Each (route, day) pair must be served by at most one vessel (Constraint 2)."""
+        result = solve(lam=0.5, forecast_path=dummy_forecast_path)
+        route_days = [(a["route_id"], a["date"]) for a in result.assignments]
+        assert len(route_days) == len(set(route_days)), (
+            "A (route, day) pair was served by more than one vessel."
+        )
+
+    def test_laycan_respected(self, dummy_forecast_path: Path) -> None:
+        """All assigned loading dates must fall within each route's laycan window."""
+        from src.solver.parameters import ROUTE_MAP
+        result = solve(lam=0.5, forecast_path=dummy_forecast_path)
+        base_date = date.today()
+        for assignment in result.assignments:
+            rid = assignment["route_id"]
+            route = ROUTE_MAP[rid]
+            loading_date = date.fromisoformat(assignment["date"])
+            day_offset = (loading_date - base_date).days
+            assert route["laycan_open"] <= day_offset <= route["laycan_close"], (
+                f"Route {rid} assigned on day {day_offset}, "
+                f"outside laycan [{route['laycan_open']}, {route['laycan_close']}]"
+            )
+
+    def test_assignments_have_required_fields(self, dummy_forecast_path: Path) -> None:
+        """Every assignment row must carry all fields the UI expects."""
+        required = {
+            "vessel_id", "route_id", "date", "score",
+            "p50_rate", "p10_rate", "p90_rate",
+            "origin", "destination", "cargo_dwt",
+            "vessel_capacity_dwt", "transit_days",
+        }
+        result = solve(lam=0.5, forecast_path=dummy_forecast_path)
+        for i, assignment in enumerate(result.assignments):
+            missing = required - assignment.keys()
+            assert not missing, f"Assignment {i} missing fields: {missing}"
+
+    def test_solver_missing_json_raises(self, tmp_path: Path) -> None:
+        """Solver must raise FileNotFoundError if the contract JSON is absent."""
+        with pytest.raises(FileNotFoundError):
+            solve(forecast_path=tmp_path / "nonexistent.json")
+
+    def test_solve_time_recorded(self, dummy_forecast_path: Path) -> None:
+        """solve_time_ms must be positive after a solve."""
+        result = solve(lam=0.5, forecast_path=dummy_forecast_path)
+        assert result.solve_time_ms > 0.0
+
+    def test_lambda_affects_scores(self, dummy_forecast_path: Path) -> None:
+        """Higher λ must yield lower or equal objective (more conservative)."""
+        result_low = solve(lam=0.0, forecast_path=dummy_forecast_path)
+        result_high = solve(lam=1.0, forecast_path=dummy_forecast_path)
+        assert result_high.objective_value <= result_low.objective_value, (
+            "Higher λ should penalise downside more, yielding lower or equal objective."
+        )

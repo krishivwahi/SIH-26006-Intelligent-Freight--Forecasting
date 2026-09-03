@@ -1,0 +1,4 @@
+# models/ — Phase 2: serialized trained model artifacts
+# Naming convention: lgb_q{quantile}_{version}.pkl | arima_{version}.pkl
+# This directory is intentionally empty in Phase 1.
+.gitkeep
