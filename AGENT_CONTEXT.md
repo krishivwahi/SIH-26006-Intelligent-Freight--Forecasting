@@ -364,11 +364,11 @@ Subject to:
 - [ ] Bare-bones Streamlit UI shell wired (Tech Lead 2)
 - [ ] End-to-end pipeline runs on dummy data (all)
 
-### Phase 2: Real Forecasts — NOT STARTED
-- [ ] AutoARIMA trained on freight rate series (Tech Lead 1)
-- [ ] LightGBM quantile models trained with all features including AutoARIMA forecast (Tech Lead 1)
-- [ ] SHAP integration: generate feature contribution values per prediction (Tech Lead 1)
-- [ ] Real forecasts replace dummy JSON in pipeline (Tech Lead 1 + Tech Lead 2)
+### Phase 2: Real Forecasts — COMPLETE
+- [x] AutoARIMA trained on freight rate series (Tech Lead 1)
+- [x] LightGBM quantile models trained with all features including AutoARIMA forecast (Tech Lead 1)
+- [x] SHAP integration: generate feature contribution values per prediction (Tech Lead 1)
+- [x] Real forecasts replace dummy JSON in pipeline (Tech Lead 1 + Tech Lead 2)
 
 ### Phase 3: Risk Scoring and Interactive UI — NOT STARTED
 - [ ] SHAP waterfall chart panel added to Streamlit UI (Tech Lead 2 + Researcher 3)

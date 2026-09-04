@@ -80,11 +80,11 @@ class AssignmentResult:
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
-def _load_forecast(path: Path) -> list[dict]:
+def _load_forecast(path: Path | str) -> list[dict]:
     """Load and validate the contract JSON.
 
     Args:
-        path: Path to freight_forecast_30d.json.
+        path: Path to freight_forecast_30d.json (Path or str).
 
     Returns:
         List of forecast records.
@@ -93,6 +93,7 @@ def _load_forecast(path: Path) -> list[dict]:
         FileNotFoundError: If the JSON does not exist.
         ValueError: If required fields are missing from any record.
     """
+    path = Path(path)
     if not path.exists():
         raise FileNotFoundError(
             f"Forecast JSON not found at {path}. "
@@ -167,7 +168,7 @@ def _is_min_cargo_feasible(vessel: dict, route: dict) -> bool:
 
 def solve(
     lam: float = LAMBDA,
-    forecast_path: Path = FORECAST_JSON_PATH,
+    forecast_path: Path | str = FORECAST_JSON_PATH,
     base_date: date | None = None,
 ) -> AssignmentResult:
     """Run the MILP solver and return a structured assignment result.
