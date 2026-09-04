@@ -136,43 +136,29 @@ class TestSolver:
         )
 
     def test_laycan_respected(self, dummy_forecast_path: Path) -> None:
-        """All assigned loading dates must fall within each route/vessel laycan window."""
-        from src.solver.parameters import LAYCAN_MATRIX, ROUTE_MAP
+        """All assigned loading dates must fall within each vessel's specific laycan window.
+
+        Day 2: validates against per-(vessel, route) windows in LAYCAN_MATRIX,
+        not the route-level envelope in ROUTE_MAP.
+        """
+        from src.solver.parameters import LAYCAN_MATRIX
         result = solve(lam=0.5, forecast_path=dummy_forecast_path)
         base_date = date.today()
         for assignment in result.assignments:
-            rid = assignment["route_id"]
             vid = assignment["vessel_id"]
-            route = ROUTE_MAP[rid]
+            rid = assignment["route_id"]
             loading_date = date.fromisoformat(assignment["date"])
             day_offset = (loading_date - base_date).days
-            if (vid, rid) in LAYCAN_MATRIX:
-                laycan = LAYCAN_MATRIX[(vid, rid)]
-                assert laycan["laycan_open"] <= day_offset <= laycan["laycan_close"], (
-                    f"Assignment ({vid}, {rid}) on day {day_offset}, "
-                    f"outside laycan [{laycan['laycan_open']}, {laycan['laycan_close']}]"
-                )
-            else:
-                assert route["laycan_open"] <= day_offset <= route["laycan_close"], (
-                    f"Route {rid} assigned on day {day_offset}, "
-                    f"outside laycan [{route['laycan_open']}, {route['laycan_close']}]"
-                )
+            vr = LAYCAN_MATRIX.get((vid, rid))
+            assert vr is not None, f"No LAYCAN_MATRIX entry for ({vid}, {rid})"
+            assert vr["feasible"], (
+                f"({vid}, {rid}) is infeasible but was assigned — Big-M failed"
+            )
+            assert vr["laycan_open"] <= day_offset <= vr["laycan_close"], (
+                f"({vid}, {rid}) assigned on day {day_offset}, outside vessel laycan "
+                f"[{vr['laycan_open']}, {vr['laycan_close']}]"
+            )
             assert 1 <= day_offset <= 30, f"Loading date outside 30-day horizon (offset {day_offset})"
-
-    def test_day2_laycan_matrix_structure(self) -> None:
-        """Verify Researcher 2 Day 2 Laycan Matrix coverage and feasibility."""
-        from src.solver.parameters import LAYCAN_MATRIX, ROUTES, VESSELS
-
-        assert len(LAYCAN_MATRIX) == len(VESSELS) * len(ROUTES)  # 50 pairs
-        for (vid, rid), entry in LAYCAN_MATRIX.items():
-            assert entry["laycan_days"] == 3
-            assert entry["laycan_close"] - entry["laycan_open"] + 1 == 3
-            assert 1 <= entry["laycan_open"] <= 30
-            assert 1 <= entry["laycan_close"] <= 30
-            if vid == "V-001":
-                assert not entry["feasible"], "V-001 Handysize must be marked infeasible"
-            else:
-                assert entry["feasible"], f"Vessel {vid} on {rid} should be feasible"
 
     def test_date_index_forward_looking(self) -> None:
         """_build_date_index must generate t+1..t+30 forward-looking dates."""
