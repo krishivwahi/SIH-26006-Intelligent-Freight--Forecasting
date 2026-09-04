@@ -94,13 +94,33 @@ def _load_forecast(path: Path) -> list[dict]:
     with path.open("r", encoding="utf-8") as fh:
         records: list[dict] = json.load(fh)
 
-    required_keys = {"date_index", "vessel_id", "route_id", "p10_rate", "p50_rate", "p90_rate"}
+    required_keys = {
+        "date_index",
+        "vessel_id",
+        "route_id",
+        "p10_rate",
+        "p50_rate",
+        "p90_rate",
+    }
+
+    seen_keys: set[tuple[str, str, str]] = set()
+
     for i, rec in enumerate(records):
         missing = required_keys - rec.keys()
         if missing:
             raise ValueError(
                 f"Record {i} in forecast JSON is missing fields: {missing}"
             )
+
+        key = (rec["vessel_id"], rec["route_id"], rec["date_index"])
+
+        if key in seen_keys:
+            raise ValueError(
+                f"Duplicate forecast record at record {i}: {key}"
+            )
+
+        seen_keys.add(key)
+
     return records
 
 
