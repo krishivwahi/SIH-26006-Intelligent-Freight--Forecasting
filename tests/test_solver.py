@@ -122,12 +122,17 @@ class TestSolver:
             f"{[v for v in vessel_ids if vessel_ids.count(v) > 1]}"
         )
 
-    def test_no_route_day_double_served(self, dummy_forecast_path: Path) -> None:
-        """Each (route, day) pair must be served by at most one vessel (Constraint 2)."""
+    def test_no_route_double_served(self, dummy_forecast_path: Path) -> None:
+        """Each route (= one cargo demand) must appear in at most one assignment.
+
+        Constraint 2 is now per-route across all laycan days: the MILP selects
+        the single best (vessel, loading-day) pair per route, not one per day.
+        """
         result = solve(lam=0.5, forecast_path=dummy_forecast_path)
-        route_days = [(a["route_id"], a["date"]) for a in result.assignments]
-        assert len(route_days) == len(set(route_days)), (
-            "A (route, day) pair was served by more than one vessel."
+        route_ids = [a["route_id"] for a in result.assignments]
+        assert len(route_ids) == len(set(route_ids)), (
+            f"Route(s) assigned more than once: "
+            f"{[r for r in route_ids if route_ids.count(r) > 1]}"
         )
 
     def test_laycan_respected(self, dummy_forecast_path: Path) -> None:
