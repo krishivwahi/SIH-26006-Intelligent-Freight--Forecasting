@@ -33,7 +33,7 @@ def dummy_forecast_path(tmp_path: Path) -> Path:
     routes = [f"R-{i:02d}" for i in range(1, 11)]
     base_date = date.today()
     records = []
-    for day_offset in range(30):
+    for day_offset in range(1, 31):
         date_str = (base_date + timedelta(days=day_offset)).strftime("%Y-%m-%d")
         for rid in routes:
             for vid in vessels:
@@ -144,6 +144,42 @@ class TestSolver:
                 f"Route {rid} assigned on day {day_offset}, "
                 f"outside laycan [{route['laycan_open']}, {route['laycan_close']}]"
             )
+            assert 1 <= day_offset <= 30, f"Loading date outside 30-day horizon (day {day_offset})"
+
+    def test_date_index_forward_looking(self) -> None:
+        """_build_date_index must generate t+1..t+30 forward-looking dates."""
+        from src.solver.solver import _build_date_index
+        base_date = date(2026, 9, 4)
+        dates = _build_date_index(base_date, 30)
+        assert len(dates) == 30
+        assert dates[0] == "2026-09-05"  # t+1
+        assert dates[-1] == "2026-10-04"  # t+30
+
+    def test_forecaster_writer_to_solver_compatibility(self, tmp_path: Path) -> None:
+        """Forecasts written by create_forecast_records must seamlessly solve in solver."""
+        import pandas as pd
+        from src.forecaster.write_forecast import create_forecast_records, write_forecast_json
+
+        # 30-day horizon predictions (horizon_step 1..30)
+        preds = pd.DataFrame({
+            "horizon_step": list(range(1, 31)),
+            "p10": [15.0] * 30,
+            "p50": [20.0] * 30,
+            "p90": [25.0] * 30,
+        })
+        base_date = date.today()
+        records = create_forecast_records(preds, start_date=base_date)
+        filepath = tmp_path / "forecaster_output.json"
+        write_forecast_json(records, filepath=str(filepath))
+
+        # Solve with the forecaster's written output
+        result = solve(lam=0.5, forecast_path=filepath, base_date=base_date)
+        assert result.solver_status == "Optimal"
+        assert len(result.assignments) > 0
+        for a in result.assignments:
+            loading_date = date.fromisoformat(a["date"])
+            offset = (loading_date - base_date).days
+            assert 1 <= offset <= 30
 
     def test_assignments_have_required_fields(self, dummy_forecast_path: Path) -> None:
         """Every assignment row must carry all fields the UI expects."""

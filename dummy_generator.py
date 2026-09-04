@@ -12,7 +12,7 @@ def generate_dummy_json(filepath="data/interim/freight_forecast_30d.json"):
     base_date = date.today()
     
     records = []
-    for day_offset in range(30):
+    for day_offset in range(1, 31):
         current_date = (base_date + timedelta(days=day_offset)).strftime("%Y-%m-%d")
         for route in routes:
             for vessel in vessels:

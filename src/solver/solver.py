@@ -105,8 +105,8 @@ def _load_forecast(path: Path) -> list[dict]:
 
 
 def _build_date_index(base_date: date, horizon: int) -> list[str]:
-    """Return ISO date strings for days 0..horizon-1 from base_date."""
-    return [(base_date + timedelta(days=d)).strftime("%Y-%m-%d") for d in range(horizon)]
+    """Return ISO date strings for days 1..horizon from base_date (Option A: t+1..t+horizon)."""
+    return [(base_date + timedelta(days=d)).strftime("%Y-%m-%d") for d in range(1, horizon + 1)]
 
 
 def _is_laycan_valid(day_offset: int, route: dict) -> bool:
@@ -163,7 +163,7 @@ def solve(
             rid = route["route_id"]
             if not _is_capacity_feasible(vessel, route):
                 continue
-            for offset, date_str in enumerate(date_strings):
+            for offset, date_str in enumerate(date_strings, start=1):
                 if not _is_laycan_valid(offset, route):
                     continue
                 key = (vid, rid, date_str)

@@ -13,3 +13,12 @@ from src.data.feature_engineering import (
     merge_data_sources,
 )
 from src.data.synthetic_data import generate_all_synthetic_data
+from src.data.load_real_data import (
+    load_sp500,
+    load_dxy,
+    load_crude_oil,
+    load_bunker_fuel,
+    load_gscpi,
+    load_commodities,
+    load_and_merge_all,
+)

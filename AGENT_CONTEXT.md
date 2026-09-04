@@ -129,6 +129,11 @@ A domain-informed lookup that maps each month to a seasonal pressure score refle
 
 **Dimensions:** 30 days x 5 vessels x 10 routes = 1,500 records per forecast run.
 
+**Forecast Horizon Alignment (Option A):**
+- Forward-looking 30 days: $t+1 \dots t+30$ (where $t$ is base run date / today).
+- Operational justification: In dry-bulk chartering, vessels cannot load on day 0 without advance notice / tender window (24–48h notice of readiness); operational loading laycans start at $t+1$ (tomorrow) through $t+30$.
+- Both `write_forecast.py`, `dummy_generator.py`, and `solver.py` are strictly synchronized to generate and evaluate dates for horizon steps $1 \dots 30$.
+
 ### 3.4 Solver (Tech Lead 2 owns this)
 
 **Type:** Deterministic Mixed-Integer Linear Programming (MILP).

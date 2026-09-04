@@ -8,7 +8,7 @@ SWAP PROTOCOL (Day 1 → Day 2):
     ROUTES in this file only. solver.py, risk.py, and app.py are untouched.
 
 All capacities in DWT (deadweight tonnage).
-All laycan offsets are days from the solver run date (day 0 = today).
+All laycan offsets are days from the solver run date (day 1 = tomorrow, horizon = days 1..30).
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ ROUTES: list[dict] = [
         "destination": "Visakhapatnam",
         "transit_days": 14,
         "cargo_requirement_dwt": 60_000,
-        "laycan_open": 0,
+        "laycan_open": 1,
         "laycan_close": 4,
     },
     {
@@ -135,7 +135,7 @@ ROUTES: list[dict] = [
         "transit_days": 20,
         "cargo_requirement_dwt": 66_000,
         "laycan_open": 27,
-        "laycan_close": 29,
+        "laycan_close": 30,
     },
 ]
 
