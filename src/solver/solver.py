@@ -40,6 +40,7 @@ import pulp
 
 from src.solver.parameters import (
     LAMBDA,
+    LAYCAN_MATRIX,
     ROUTE_MAP,
     ROUTES,
     VESSEL_MAP,
@@ -138,9 +139,26 @@ def _build_date_index(base_date: date, horizon: int) -> list[str]:
     return [(base_date + timedelta(days=d)).strftime("%Y-%m-%d") for d in range(1, horizon + 1)]
 
 
-def _is_laycan_valid(day_offset: int, route: dict) -> bool:
-    """Return True if day_offset falls within the route's laycan window."""
-    return route["laycan_open"] <= day_offset <= route["laycan_close"]
+def _is_laycan_valid(
+    day_offset: int,
+    route: dict,
+    vessel_id: str | None = None,
+    laycan_matrix: dict[tuple[str, str], dict] | None = None,
+) -> bool:
+    """Return True if day_offset falls within the vessel-route laycan window.
+
+    If a pairwise laycan matrix is provided (Day 2 Laycan Matrix),
+    checks the specific (vessel, route) 3-day laycan window and feasibility.
+    Otherwise falls back to route-level [laycan_open, laycan_close].
+    """
+    if vessel_id is not None and laycan_matrix is not None:
+        key = (vessel_id, route.get("route_id", ""))
+        if key in laycan_matrix:
+            entry = laycan_matrix[key]
+            if not entry.get("feasible", True):
+                return False
+            return entry["laycan_open"] <= day_offset <= entry["laycan_close"]
+    return route.get("laycan_open", 0) <= day_offset <= route.get("laycan_close", 30)
 
 
 def _is_capacity_feasible(vessel: dict, route: dict) -> bool:
@@ -198,7 +216,7 @@ def solve(
 
     # ── 2. Build feasible (vessel, route, day_offset) triples ─────────────
     # A triple is feasible if:
-    #   a) the day_offset is within the route's laycan window
+    #   a) the day_offset is within the vessel-route's 3-day laycan window
     #   b) the vessel has enough capacity for the route's cargo
     #   c) a score exists in the lookup (i.e. the forecast JSON covers it)
     feasible: list[tuple[str, str, str]] = []
@@ -209,7 +227,7 @@ def solve(
             if not _is_capacity_feasible(vessel, route):
                 continue
             for offset, date_str in enumerate(date_strings, start=1):
-                if not _is_laycan_valid(offset, route):
+                if not _is_laycan_valid(offset, route, vessel_id=vid, laycan_matrix=LAYCAN_MATRIX):
                     continue
                 key = (vid, rid, date_str)
                 if key in score_lookup:

@@ -4,13 +4,12 @@ src/solver/parameters.py
 Real vessel and route parameter matrix — frozen Day 1 candidate.
 Source: Researcher_2_Day_1_Domain_Matrix_REVIEWED.xlsx (handed over 2026-09-04).
 
-SWAP STATUS (Day 1 → Day 2 partial):
-    ✅  Vessel data:  real names, DWT, speed, fuel (from published vessel specs)
-    ✅  Route data:   real ports, planning distances, corrected transit days,
-                     real cargo lots (40–50 kt to fit the Alpha vessel pool)
-    ⏳  Laycan windows: STILL PLACEHOLDER — spread evenly across 30-day horizon.
-                       Researcher 2 will supply real windows separately.
-                       Update laycan_open / laycan_close only when received.
+SWAP STATUS (Day 1 → Day 2 COMPLETE):
+    ✅  Vessel data:    real names, DWT, speed, fuel (from published vessel specs)
+    ✅  Route data:     real ports, planning distances, corrected transit days,
+                        real cargo lots (40–50 kt to fit the Alpha vessel pool)
+    ✅  Laycan windows: INTEGRATED from Researcher_2_Day_2_Laycan_Matrix.xlsx
+                        (50 vessel-route pairs, 3-day laycan windows, 30d horizon).
 
 ASSUMPTIONS (see workbook Assumptions sheet for full traceability):
     A-01  Vessel names are real published specifications; NOT currently available fleet.
@@ -147,8 +146,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 50_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Strongly evidenced Australia→India lane
-        "laycan_open": 0,              # ⏳ PLACEHOLDER
-        "laycan_close": 4,             # ⏳ PLACEHOLDER
+        "laycan_open": 1,              # Day 2 Matrix: 2026-09-05 (envelope start)
+        "laycan_close": 6,             # Day 2 Matrix: 2026-09-10 (envelope end)
     },
     {
         "route_id": "R-02",
@@ -159,8 +158,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 50_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Platts/S&P named benchmark route
-        "laycan_open": 3,              # ⏳ PLACEHOLDER
-        "laycan_close": 7,             # ⏳ PLACEHOLDER
+        "laycan_open": 3,              # Day 2 Matrix: 2026-09-07 (envelope start)
+        "laycan_close": 8,             # Day 2 Matrix: 2026-09-12 (envelope end)
     },
     {
         "route_id": "R-03",
@@ -171,8 +170,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 40_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Haldia explicitly in Australia→India assessment
-        "laycan_open": 6,              # ⏳ PLACEHOLDER
-        "laycan_close": 10,            # ⏳ PLACEHOLDER
+        "laycan_open": 5,              # Day 2 Matrix: 2026-09-09 (envelope start)
+        "laycan_close": 10,            # Day 2 Matrix: 2026-09-14 (envelope end)
     },
     {
         "route_id": "R-04",
@@ -183,8 +182,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 50_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "FLAG",       # Alpha extension — not a Platts benchmark
-        "laycan_open": 9,              # ⏳ PLACEHOLDER
-        "laycan_close": 13,            # ⏳ PLACEHOLDER
+        "laycan_open": 7,              # Day 2 Matrix: 2026-09-11 (envelope start)
+        "laycan_close": 12,            # Day 2 Matrix: 2026-09-16 (envelope end)
     },
     {
         "route_id": "R-05",
@@ -195,8 +194,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 50_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Real East Coast Australia→India trade lane
-        "laycan_open": 12,             # ⏳ PLACEHOLDER
-        "laycan_close": 16,            # ⏳ PLACEHOLDER
+        "laycan_open": 9,              # Day 2 Matrix: 2026-09-13 (envelope start)
+        "laycan_close": 14,            # Day 2 Matrix: 2026-09-18 (envelope end)
     },
     {
         "route_id": "R-06",
@@ -207,8 +206,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 50_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Direct documented Gladstone→Paradip voyage
-        "laycan_open": 15,             # ⏳ PLACEHOLDER
-        "laycan_close": 19,            # ⏳ PLACEHOLDER
+        "laycan_open": 11,             # Day 2 Matrix: 2026-09-15 (envelope start)
+        "laycan_close": 16,            # Day 2 Matrix: 2026-09-20 (envelope end)
     },
     {
         "route_id": "R-07",
@@ -219,8 +218,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 40_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "FLAG",       # Plausible but Alpha extension, not benchmark
-        "laycan_open": 18,             # ⏳ PLACEHOLDER
-        "laycan_close": 22,            # ⏳ PLACEHOLDER
+        "laycan_open": 13,             # Day 2 Matrix: 2026-09-17 (envelope start)
+        "laycan_close": 18,            # Day 2 Matrix: 2026-09-22 (envelope end)
     },
     {
         "route_id": "R-08",
@@ -231,8 +230,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 50_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Dalrymple Bay explicit in Australia→India assessment
-        "laycan_open": 21,             # ⏳ PLACEHOLDER
-        "laycan_close": 25,            # ⏳ PLACEHOLDER
+        "laycan_open": 15,             # Day 2 Matrix: 2026-09-19 (envelope start)
+        "laycan_close": 20,            # Day 2 Matrix: 2026-09-24 (envelope end)
     },
     {
         "route_id": "R-09",
@@ -243,8 +242,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 50_000,
         "cargo_type": "metallurgical_coal",  # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Platts explicitly assesses Vancouver→Vizag met-coal
-        "laycan_open": 24,             # ⏳ PLACEHOLDER
-        "laycan_close": 28,            # ⏳ PLACEHOLDER
+        "laycan_open": 18,             # Day 2 Matrix: 2026-09-22 (envelope start)
+        "laycan_close": 23,            # Day 2 Matrix: 2026-09-27 (envelope end)
     },
     {
         "route_id": "R-10",
@@ -255,8 +254,8 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 50_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "FLAG",       # Diversity/planning lane — see Assumption A-08
-        "laycan_open": 27,             # ⏳ PLACEHOLDER
-        "laycan_close": 29,            # ⏳ PLACEHOLDER
+        "laycan_open": 21,             # Day 2 Matrix: 2026-09-25 (envelope start)
+        "laycan_close": 26,            # Day 2 Matrix: 2026-09-30 (envelope end)
     },
 ]
 
@@ -265,3 +264,65 @@ VESSEL_IDS: list[str] = [v["vessel_id"] for v in VESSELS]
 ROUTE_IDS: list[str] = [r["route_id"] for r in ROUTES]
 ROUTE_MAP: dict[str, dict] = {r["route_id"]: r for r in ROUTES}
 VESSEL_MAP: dict[str, dict] = {v["vessel_id"]: v for v in VESSELS}
+
+# ── Day 2 Laycan Matrix (Researcher 2 Domain Scheduling) ──────────────────────
+# 50 combinations: 5 vessels × 10 routes with 3-day laycan windows in 30d horizon.
+# Base date convention: Day 0 = 2026-09-04; Horizon = 2026-09-05 (Day 1) .. 2026-10-04 (Day 30).
+_ROUTE_STARTS: dict[str, tuple[int, str]] = {
+    "R-01": (1, "2026-09-05"),
+    "R-02": (3, "2026-09-07"),
+    "R-03": (5, "2026-09-09"),
+    "R-04": (7, "2026-09-11"),
+    "R-05": (9, "2026-09-13"),
+    "R-06": (11, "2026-09-15"),
+    "R-07": (13, "2026-09-17"),
+    "R-08": (15, "2026-09-19"),
+    "R-09": (18, "2026-09-22"),
+    "R-10": (21, "2026-09-25"),
+}
+
+_VESSEL_OFFSETS: dict[str, int] = {
+    "V-005": 0,
+    "V-002": 1,
+    "V-003": 2,
+    "V-004": 3,
+    "V-001": 0,
+}
+
+from datetime import date as _date, timedelta as _timedelta
+
+_BASE_PLANNING_DATE = _date(2026, 9, 4)
+
+def _generate_static_laycan_matrix() -> dict[tuple[str, str], dict]:
+    """Generate the static 50-pair laycan lookup identical to Day2_Laycan_Matrix.xlsx."""
+    matrix: dict[tuple[str, str], dict] = {}
+    for r in ROUTES:
+        rid = r["route_id"]
+        start_offset, _ = _ROUTE_STARTS[rid]
+        for v in VESSELS:
+            vid = v["vessel_id"]
+            v_offset = _VESSEL_OFFSETS[vid]
+            open_offset = start_offset + v_offset
+            close_offset = open_offset + 2  # 3-day window inclusive
+            start_date = (_BASE_PLANNING_DATE + _timedelta(days=open_offset)).strftime("%Y-%m-%d")
+            end_date = (_BASE_PLANNING_DATE + _timedelta(days=close_offset)).strftime("%Y-%m-%d")
+            feasible = (vid != "V-001")
+            reason = (
+                "Vessel DWT is sufficient for planning cargo."
+                if feasible
+                else f"Vessel DWT {v['capacity_dwt']:,} MT is below planning cargo {r['cargo_requirement_dwt']:,} MT."
+            )
+            matrix[(vid, rid)] = {
+                "vessel_id": vid,
+                "route_id": rid,
+                "laycan_open": open_offset,
+                "laycan_close": close_offset,
+                "laycan_start": start_date,
+                "laycan_end": end_date,
+                "laycan_days": 3,
+                "feasible": feasible,
+                "feasibility_reason": reason,
+            }
+    return matrix
+
+LAYCAN_MATRIX: dict[tuple[str, str], dict] = _generate_static_laycan_matrix()
