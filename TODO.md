@@ -1,4 +1,4 @@
-﻿# TODO — AI Maritime Chartering Engine
+# TODO — AI Maritime Chartering Engine
 
 > Items here are **not** Phase 1 blockers. They are improvements to be picked up
 > as bandwidth allows, roughly ordered by phase relevance.
@@ -7,15 +7,6 @@
 ---
 
 ## Solver
-
-- [x] **Score normalisation across vessels** DONE (2026-09-04)
-  - Added `normalise_scores()` to `src/solver/risk.py`.
-  - `app.py`: Norm. Score (0-100) progress-bar column + bar chart uses
-    normalised scores on Y-axis, colour-coded blue (Benchmark) / orange (FLAG).
-
-- [x] **Duplicate record detection in forecast JSON loader** DONE (2026-09-04)
-  - `_load_forecast()` now raises `ValueError` on the first duplicate
-    (vessel, route, date) triple detected in the JSON.
 
 - [ ] **V-001 idle — team decision required**
   - MV TS INDEX (38,854 DWT Handysize) is below the cargo floor of every route
@@ -144,9 +135,7 @@
 
 ## Infrastructure
 
-- [x] **`.gitignore` and `.dockerignore` added** DONE
-- [x] **`dummy_generator.py` relative path fixed** DONE (2026-09-04)
-  - Now uses `Path(__file__).parent / ...` — safe from any working directory.
+
 
 ---
 
@@ -171,3 +160,4 @@
 - [ ] Add freight rate crash slider and fuel price shock slider (Phase 3).
 - [ ] Add voyage cost penalty term to solver objective (Phase 3 — see Voyage cost item above).
 - [ ] Backtest profit-uplift metric vs. naive baseline (Phase 4).
+
