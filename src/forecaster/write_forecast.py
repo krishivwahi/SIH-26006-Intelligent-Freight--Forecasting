@@ -126,13 +126,6 @@ def create_forecast_records(
         for vessel in vessels:
             v_mult = vessel_multipliers.get(vessel, 1.0)
             for route in routes:
-                # Capacity pre-filter: skip (vessel, route) pairs marked
-                # infeasible in LAYCAN_FEASIBLE (V-001 on all routes).
-                # Prevents dead records that the solver silently discards
-                # and bloat the JSON with no effect on the MILP solution.
-                if not LAYCAN_FEASIBLE.get((vessel, route), True):
-                    continue
-
                 r_mult = route_multipliers.get(route, 1.0)
                 combined = v_mult * r_mult
                 records.append({
