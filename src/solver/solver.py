@@ -9,7 +9,9 @@ Alpha scope (AGENT_CONTEXT.md §3.4):
   - Objective: maximise Σ Score(v,r,t) * x[v,r,t]
   - Constraints:
       1. Each vessel used at most once across all routes and days
-      2. Each (route, day) served by at most one vessel
+      2. Each route served by at most one vessel across ALL days in its laycan window
+         (one route = one physical cargo demand = one ship total; the MILP picks the
+          optimal (vessel, loading-day) pair from all candidates in the window)
       3. Laycan timing: x[v,r,t] = 0 outside [laycan_open, laycan_close] per route
       4. Capacity: vessel.capacity_dwt >= route.cargo_requirement_dwt (enforced by
          filtering infeasible pairings, not Big-M — Big-M comes with real data Day 2)
@@ -252,14 +254,16 @@ def solve(
         if vessel_vars:
             prob += pulp.lpSum(vessel_vars) <= 1, f"OneAssignmentPerVessel_{vid}"
 
-    # Constraint 2: each (route, day) served by at most one vessel
+    # Constraint 2: each route (= one cargo demand) served by exactly one vessel
+    # across ALL days in its laycan window.  The MILP evaluates every feasible
+    # (vessel, loading-day) combination and selects the single highest-scoring one.
+    # Previously this was scoped per (route, day), allowing multiple vessels to be
+    # assigned to the same route on different days — incorrect domain behaviour.
     for route in ROUTES:
         rid = route["route_id"]
-        for date_str in date_strings:
-            route_day_vars = [x[k] for k in feasible if k[1] == rid and k[2] == date_str]
-            if route_day_vars:
-                prob += pulp.lpSum(route_day_vars) <= 1, \
-                    f"OneVesselPerRouteDay_{rid}_{date_str}"
+        route_vars = [x[k] for k in feasible if k[1] == rid]
+        if route_vars:
+            prob += pulp.lpSum(route_vars) <= 1, f"OneVesselPerRoute_{rid}"
 
     # ── 4. Solve ───────────────────────────────────────────────────────────
     t0 = time.perf_counter()
