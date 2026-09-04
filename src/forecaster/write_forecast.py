@@ -5,6 +5,21 @@ Reads predictions from the QuantileForecaster, expands them across
 the vessel-route matrix using route and vessel multipliers, and writes
 the result to ``data/interim/freight_forecast_30d.json`` in the schema
 defined by CONTRACT.md.
+
+Day 2 fixes applied (2026-09-04):
+    - DEFAULT_VESSELS / DEFAULT_ROUTES now imported from parameters.py
+      (single source of truth — no drift if parameters.py changes).
+    - Route multipliers recalibrated from distance-proportional formula:
+      multiplier = 0.5 + 0.5 * (route_distance_nm / R01_distance_nm)
+      Fixes R-05–R-08 which were sized for ~9,000 NM US East Coast origins
+      but real routes are ~4,450–4,800 NM Australian ports.
+      Also fixes R-09/R-10 which were too low for their real distances.
+    - Vessel multipliers flattened to reflect the real fleet: 4 near-
+      identical Supramaxes (51k–57k DWT). The old 0.95–1.07 spread was
+      designed for a Capesize/Panamax/Supramax tiered fleet.
+    - Capacity pre-filter added: V-001 (38,854 DWT Handysize) cannot
+      serve any route (all cargo lots >= 40,000 MT). No dead records
+      written. Mirrors LAYCAN_FEASIBLE in parameters.py.
 """
 
 import json
@@ -14,41 +29,55 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
+from src.solver.parameters import LAYCAN_FEASIBLE, ROUTES, VESSELS
+
 # ---------------------------------------------------------------------------
-# Default vessel and route IDs (Alpha scope: 5 vessels, 10 routes)
+# Default vessel and route IDs — single source of truth from parameters.py
 # ---------------------------------------------------------------------------
 
-DEFAULT_VESSELS: List[str] = [f"V-{i:03d}" for i in range(1, 6)]
-DEFAULT_ROUTES: List[str] = [f"R-{i:02d}" for i in range(1, 11)]
+DEFAULT_VESSELS: List[str] = [v["vessel_id"] for v in VESSELS]
+DEFAULT_ROUTES: List[str] = [r["route_id"] for r in ROUTES]
 
-# Route multipliers — placeholder values pending calibration to the real matrix.
-# IMPORTANT: values for R-05..R-08 were originally written assuming US East Coast
-# origins (~9,000 NM). The real matrix swap moved those routes to Australian ports
-# (~4,600-4,800 NM). Multiplier VALUES need recalibration before Phase 2 switch;
-# COMMENTS below are updated to reflect the real port-to-port lanes.
+# ---------------------------------------------------------------------------
+# Route multipliers — distance-proportional, calibrated to real route matrix
+#
+# Formula: multiplier = 0.5 + 0.5 * (route_distance_nm / R01_distance_nm)
+# This reflects that freight rates have a fixed component (port costs, canal
+# fees, overhead) and a variable component (fuel). The 50/50 split is an
+# Alpha planning assumption; Phase 2 should fit multipliers to real BDI data.
+#
+# R-01 (Hay Point → Vizag, 4,700 NM) is the Platts benchmark = 1.00×.
+# ---------------------------------------------------------------------------
 DEFAULT_ROUTE_MULTIPLIERS: Dict[str, float] = {
-    "R-01": 1.00,  # Hay Point, Australia -> Visakhapatnam       (Platts benchmark)
-    "R-02": 1.05,  # Hay Point, Australia -> Paradip             (Platts benchmark)
-    "R-03": 1.08,  # Hay Point, Australia -> Haldia
-    "R-04": 0.98,  # Hay Point, Australia -> Gangavaram          (FLAG: Alpha extension)
-    "R-05": 1.15,  # Gladstone, Australia -> Visakhapatnam       (value needs recalibration)
-    "R-06": 1.18,  # Gladstone, Australia -> Paradip             (value needs recalibration)
-    "R-07": 1.22,  # Gladstone, Australia -> Haldia              (FLAG: Alpha extension; value needs recalibration)
-    "R-08": 1.12,  # Dalrymple Bay, Australia -> Paradip         (value needs recalibration)
-    "R-09": 1.10,  # Vancouver, Canada -> Visakhapatnam          (met-coal; ~7,800 NM)
-    "R-10": 1.14,  # Hampton Roads, USA -> Paradip               (FLAG: diversity lane; ~9,500 NM)
+    "R-01": 1.00,  # Hay Point → Visakhapatnam,   4,700 NM  — Platts benchmark
+    "R-02": 0.98,  # Hay Point → Paradip,          4,500 NM  — 0.5 + 0.5*(4500/4700)
+    "R-03": 0.99,  # Hay Point → Haldia,           4,600 NM  — 0.5 + 0.5*(4600/4700)
+    "R-04": 1.01,  # Hay Point → Gangavaram,       4,800 NM  — FLAG lane; 0.5 + 0.5*(4800/4700)
+    "R-05": 1.01,  # Gladstone → Visakhapatnam,    4,800 NM  — 0.5 + 0.5*(4800/4700)
+    "R-06": 0.99,  # Gladstone → Paradip,          4,600 NM  — 0.5 + 0.5*(4600/4700)
+    "R-07": 1.00,  # Gladstone → Haldia,           4,700 NM  — FLAG lane; 0.5 + 0.5*(4700/4700)
+    "R-08": 0.97,  # Dalrymple Bay → Paradip,      4,450 NM  — 0.5 + 0.5*(4450/4700)
+    "R-09": 1.33,  # Vancouver → Visakhapatnam,    7,800 NM  — met-coal; 0.5 + 0.5*(7800/4700)
+    "R-10": 1.51,  # Hampton Roads → Paradip,      9,500 NM  — FLAG; Suez routing assumed;
+                   #                                            0.5 + 0.5*(9500/4700)
+                   # NOTE: Suez Canal (~9,500 NM) vs Cape (~11,200 NM) routing not
+                   # confirmed. If Cape routing, multiply by ~1.18 further.
 }
 
-# Vessel multipliers — placeholder values, not yet calibrated to the real fleet.
-# Real fleet is 1x Handysize + 4x Supramax (all similar size: 51k-57k DWT).
-# The wide spread below (0.95-1.07) was designed for a Capesize/Panamax/Supramax
-# tiered fleet that no longer matches. Recalibrate before Phase 2 switch.
+# ---------------------------------------------------------------------------
+# Vessel multipliers — calibrated to real fleet (4× near-identical Supramaxes)
+#
+# Old spread (0.95–1.07) was sized for a Capesize/Panamax/Supramax tier mix.
+# Real fleet: V-002–V-005 are all Supramax (51k–57k DWT, ~12% DWT spread).
+# Rate premium for larger Supramax over smaller is ~1–2% in spot markets.
+# V-001 (Handysize, 38,854 DWT) is IDLE — below cargo floor of every route.
+# ---------------------------------------------------------------------------
 DEFAULT_VESSEL_MULTIPLIERS: Dict[str, float] = {
-    "V-001": 0.95,  # MV TS INDEX      -- Handysize, 38,854 DWT  [IDLE: below cargo floor of all routes]
-    "V-002": 0.98,  # MV LOFTY MOUNTAIN   -- Supramax, 51,008 DWT
-    "V-003": 1.00,  # MV IMPERIAL FORTUNE -- Supramax, 53,505 DWT
-    "V-004": 1.03,  # MV VIENNA WOOD N    -- Supramax, 55,768 DWT
-    "V-005": 1.07,  # MV NORTH QUAY       -- Supramax, 57,016 DWT (largest in fleet)
+    "V-001": 0.90,  # MV TS INDEX         — Handysize, 38,854 DWT  [IDLE]
+    "V-002": 1.00,  # MV LOFTY MOUNTAIN   — Supramax,  51,008 DWT  (baseline)
+    "V-003": 1.01,  # MV IMPERIAL FORTUNE — Supramax,  53,505 DWT  (+1% for DWT)
+    "V-004": 1.01,  # MV VIENNA WOOD N    — Supramax,  55,768 DWT  (+1% for DWT)
+    "V-005": 1.02,  # MV NORTH QUAY       — Supramax,  57,016 DWT  (+2% largest)
 }
 
 DEFAULT_FILEPATH: str = os.path.join("data", "interim", "freight_forecast_30d.json")
@@ -97,6 +126,13 @@ def create_forecast_records(
         for vessel in vessels:
             v_mult = vessel_multipliers.get(vessel, 1.0)
             for route in routes:
+                # Capacity pre-filter: skip (vessel, route) pairs marked
+                # infeasible in LAYCAN_FEASIBLE (V-001 on all routes).
+                # Prevents dead records that the solver silently discards
+                # and bloat the JSON with no effect on the MILP solution.
+                if not LAYCAN_FEASIBLE.get((vessel, route), True):
+                    continue
+
                 r_mult = route_multipliers.get(route, 1.0)
                 combined = v_mult * r_mult
                 records.append({

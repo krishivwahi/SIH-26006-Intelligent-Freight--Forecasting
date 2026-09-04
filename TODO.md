@@ -20,15 +20,15 @@
   - Option (c) is already partially in place: `dummy_generator.py` warns on run,
     and `write_forecast.py` labels V-001 [IDLE] in its comments.
 
-- [ ] **Wire `_is_min_cargo_feasible()` into the solver — blocked on team domain decision**
-  - `_is_min_cargo_feasible()` is defined in `solver.py` but not called.
-  - Wiring it would make R-03 (Haldia, 40k MT) and R-07 (Haldia, 40k MT) infeasible
-    for all Supramax vessels because every vessel's 85%-DWT commercial floor exceeds 40k MT.
-  - Decision needed (pick one):
-    a) Confirm Supramaxes accept 40k MT lots on these lanes -> keep routes, don't wire, OR
-    b) Raise cargo lots to >= 43,000 MT (V-002 floor) -> wire the filter, routes survive, OR
-    c) Remove R-03 and R-07 from Alpha -> wire the filter, lose 2 routes.
-  - Until decided, filter is intentionally not wired. See note in `solver.py`.
+- [x] **Wire `_is_min_cargo_feasible()` into the solver — RESOLVED via Day 2 xlsx**
+  - Researcher_2_Day_2_Laycan_Matrix.xlsx explicitly marks V-002, V-003, V-004, V-005
+    as `feasible=YES` on R-03 (Haldia, 40k MT) and R-07 (Haldia, 40k MT).
+  - This is an explicit domain confirmation of **option (a)**: Supramaxes accept 40k MT
+    lots on these lanes. The function is NOT wired and is now superseded by LAYCAN_MATRIX.
+  - `_is_min_cargo_feasible()` is retained in `solver.py` as documentation for Phase 2
+    when real commercial floors may differ from planning assumptions.
+  - Note: V-002 floor=43k > 40k cargo, V-003=45k, V-004=47k, V-005=48k — all above
+    the 40k lot. The xlsx feasibility flag overrides the 85%-DWT heuristic for Alpha.
 
 - [ ] **Voyage cost is absent from the objective — real transit days quantify the gap**
   - Scoring formula: `Score = P50 - lam*(P50 - P10)` (freight rates only).

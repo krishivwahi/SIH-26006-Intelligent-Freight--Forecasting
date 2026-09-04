@@ -136,23 +136,28 @@ class TestSolver:
         )
 
     def test_laycan_respected(self, dummy_forecast_path: Path) -> None:
-        """All assigned loading dates must fall within each route's laycan window."""
-        from src.solver.parameters import ROUTE_MAP
+        """All assigned loading dates must fall within each vessel's specific laycan window.
+
+        Day 2: validates against per-(vessel, route) windows in LAYCAN_MATRIX,
+        not the route-level envelope in ROUTE_MAP.
+        """
+        from src.solver.parameters import LAYCAN_MATRIX
         result = solve(lam=0.5, forecast_path=dummy_forecast_path)
         base_date = date.today()
         for assignment in result.assignments:
+            vid = assignment["vessel_id"]
             rid = assignment["route_id"]
-            route = ROUTE_MAP[rid]
             loading_date = date.fromisoformat(assignment["date"])
             day_offset = (loading_date - base_date).days
-            assert route["laycan_open"] <= day_offset <= route["laycan_close"], (
-                f"Route {rid} assigned on day {day_offset}, "
-                f"outside laycan [{route['laycan_open']}, {route['laycan_close']}]"
+            vr = LAYCAN_MATRIX.get((vid, rid))
+            assert vr is not None, f"No LAYCAN_MATRIX entry for ({vid}, {rid})"
+            assert vr["feasible"], (
+                f"({vid}, {rid}) is infeasible but was assigned — Big-M failed"
             )
-            # P-11 clarification: the assertion below is correct.
-            # _build_date_index starts at offset 1 (tomorrow), so offset 0 is
-            # never in the date index even if laycan_open=0.  The bound 1..30
-            # reflects the actual assignable horizon, not a domain constraint.
+            assert vr["laycan_open"] <= day_offset <= vr["laycan_close"], (
+                f"({vid}, {rid}) assigned on day {day_offset}, outside vessel laycan "
+                f"[{vr['laycan_open']}, {vr['laycan_close']}]"
+            )
             assert 1 <= day_offset <= 30, f"Loading date outside 30-day horizon (offset {day_offset})"
 
     def test_date_index_forward_looking(self) -> None:
