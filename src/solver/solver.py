@@ -18,6 +18,13 @@ Day 1  → constant placeholder rates, fake laycan windows → proves mechanics 
 Day 2  → real vessel/route matrix in parameters.py, real Big-M constraints
 Day 3  → real forecast JSON replaces dummy JSON, no code change needed here
 
+Date-offset convention (shared with dummy_generator.py):
+    Day 0 = the solver run date (base_date, today).  NOT included in the horizon.
+    Days 1..30 = the 30-day planning window (t+1 … t+30).
+    _build_date_index() and dummy_generator.py both produce this same t+1..t+30
+    range.  The laycan_open / laycan_close offsets in parameters.py are expressed
+    in this same 1-indexed space (offset 0 = today, offset 1 = tomorrow).
+
 CONTRACT: reads from data/interim/freight_forecast_30d.json (locked schema).
 """
 from __future__ import annotations
@@ -95,17 +102,38 @@ def _load_forecast(path: Path) -> list[dict]:
         records: list[dict] = json.load(fh)
 
     required_keys = {"date_index", "vessel_id", "route_id", "p10_rate", "p50_rate", "p90_rate"}
+    seen: set[tuple[str, str, str]] = set()
     for i, rec in enumerate(records):
         missing = required_keys - rec.keys()
         if missing:
             raise ValueError(
                 f"Record {i} in forecast JSON is missing fields: {missing}"
             )
+        # Duplicate detection (TODO): silently overwriting rate_lookup would cause
+        # the solver to optimise on stale/wrong rates if the ML pipeline has a merge bug.
+        key = (rec["vessel_id"], rec["route_id"], rec["date_index"])
+        if key in seen:
+            raise ValueError(
+                f"Duplicate record at index {i}: (vessel={rec['vessel_id']}, "
+                f"route={rec['route_id']}, date={rec['date_index']}) appears more than once. "
+                "Check the forecast pipeline for a merge or concatenation bug."
+            )
+        seen.add(key)
     return records
 
 
 def _build_date_index(base_date: date, horizon: int) -> list[str]:
-    """Return ISO date strings for days 1..horizon from base_date (Option A: t+1..t+horizon)."""
+    """Return ISO date strings for offsets 1..horizon from base_date.
+
+    Convention: offset 0 = base_date (today, the run date) is excluded.
+    Offset 1 = tomorrow = the earliest possible loading date.
+    This matches dummy_generator.py (range(1, 31)) and the laycan_open /
+    laycan_close offsets in parameters.py, which share the same 1-indexed space.
+
+    Example:
+        base_date = 2026-09-04, horizon = 30
+        → ["2026-09-05", "2026-09-06", …, "2026-10-04"]  (30 dates, t+1..t+30)
+    """
     return [(base_date + timedelta(days=d)).strftime("%Y-%m-%d") for d in range(1, horizon + 1)]
 
 
@@ -117,6 +145,22 @@ def _is_laycan_valid(day_offset: int, route: dict) -> bool:
 def _is_capacity_feasible(vessel: dict, route: dict) -> bool:
     """Return True if the vessel can physically carry the route's cargo lot."""
     return vessel["capacity_dwt"] >= route["cargo_requirement_dwt"]
+
+
+def _is_min_cargo_feasible(vessel: dict, route: dict) -> bool:
+    """Return True if the route's cargo lot meets the vessel's commercial loading floor.
+
+    P-07 note: this filter is defined but NOT wired into the feasible-triple loop.
+    Wiring it with the current Alpha matrix makes R-03 and R-07 (40,000 MT cargo)
+    infeasible for all vessels, because every Supramax min_cargo_dwt (~85 % of DWT)
+    exceeds 40,000 MT.  The team must either:
+      a) Lower some cargo lots to match real vessel floors, OR
+      b) Confirm that Supramaxes do accept 40,000 MT lots on these lanes.
+    Once decided, replace the _is_capacity_feasible check below with both:
+        if not _is_capacity_feasible(vessel, route): continue
+        if not _is_min_cargo_feasible(vessel, route): continue
+    """
+    return route["cargo_requirement_dwt"] >= vessel.get("min_cargo_dwt", 0)
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
@@ -213,6 +257,12 @@ def solve(
         pulp.LpStatusUndefined: "Undefined",
     }
     status_str = status_map.get(prob.status, "Unknown")
+    # TODO (CBC truncated solve): if the solver hits timeLimit it returns the best
+    # feasible solution found but still sets prob.status = LpStatusOptimal.
+    # Detect this by comparing prob.status vs prob.sol_status and override:
+    #   if prob.status == pulp.LpStatusOptimal and prob.sol_status != 1:
+    #       status_str = "Time-limited (best found)"
+    # Not triggered at 1,200 variables, but wired here for Beta readiness.
 
     # ── 5. Extract assignments ─────────────────────────────────────────────
     assignments: list[dict[str, Any]] = []
@@ -236,7 +286,15 @@ def solve(
                         "destination": route_info["destination"],
                         "cargo_dwt": route_info["cargo_requirement_dwt"],
                         "vessel_capacity_dwt": vessel_info["capacity_dwt"],
+                        # P-06: transit_days is planning metadata (informational).
+                        # It is NOT enforced as a constraint in the MILP — the
+                        # single-assignment-per-vessel constraint already prevents
+                        # double-use within the 30-day horizon for Alpha scope.
                         "transit_days": route_info["transit_days"],
+                        # P-05: review_status and cargo_type passed to UI so
+                        # FLAG lanes can be visually distinguished from benchmarks.
+                        "review_status": route_info.get("review_status", "KEEP"),
+                        "cargo_type": route_info.get("cargo_type", "coking_coal"),
                     }
                 )
         # Sort by date then vessel for consistent display

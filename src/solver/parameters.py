@@ -15,6 +15,9 @@ SWAP STATUS (Day 1 → Day 2 partial):
 ASSUMPTIONS (see workbook Assumptions sheet for full traceability):
     A-01  Vessel names are real published specifications; NOT currently available fleet.
     A-02  Fuel figures differ in type (IFO/VLSFO/HFO) and aux-inclusion — keep notes.
+          P-08: No fuel-cost normalisation is applied in Alpha. The scoring formula
+          uses only freight rates (p50/p10). If fuel cost enters the objective in
+          Phase 2, all five fuel types must be converted to a common basis first.
     A-03  Route distances are Alpha planning estimates, not AIS-derived.
     A-04  Sailing days = distance(NM) ÷ 13 kn ÷ 24, rounded; no port/weather buffer.
     A-05  Planning cargo (40–50 kt) is an Alpha modelling assumption, not a contract.
@@ -142,7 +145,7 @@ ROUTES: list[dict] = [
         "distance_nm": 4_700,
         "transit_days": 15,            # 4700 NM ÷ 13 kn ÷ 24 ≈ 15.1 d
         "cargo_requirement_dwt": 50_000,
-        "cargo_type": "coking_coal",
+        "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Strongly evidenced Australia→India lane
         "laycan_open": 0,              # ⏳ PLACEHOLDER
         "laycan_close": 4,             # ⏳ PLACEHOLDER
@@ -154,7 +157,7 @@ ROUTES: list[dict] = [
         "distance_nm": 4_500,
         "transit_days": 14,            # 4500 NM ÷ 13 kn ÷ 24 ≈ 14.4 d
         "cargo_requirement_dwt": 50_000,
-        "cargo_type": "coking_coal",
+        "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Platts/S&P named benchmark route
         "laycan_open": 3,              # ⏳ PLACEHOLDER
         "laycan_close": 7,             # ⏳ PLACEHOLDER
@@ -166,7 +169,7 @@ ROUTES: list[dict] = [
         "distance_nm": 4_600,
         "transit_days": 15,            # 4600 NM ÷ 13 kn ÷ 24 ≈ 14.7 d
         "cargo_requirement_dwt": 40_000,
-        "cargo_type": "coking_coal",
+        "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Haldia explicitly in Australia→India assessment
         "laycan_open": 6,              # ⏳ PLACEHOLDER
         "laycan_close": 10,            # ⏳ PLACEHOLDER
@@ -178,7 +181,7 @@ ROUTES: list[dict] = [
         "distance_nm": 4_800,
         "transit_days": 15,            # 4800 NM ÷ 13 kn ÷ 24 ≈ 15.4 d
         "cargo_requirement_dwt": 50_000,
-        "cargo_type": "coking_coal",
+        "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "FLAG",       # Alpha extension — not a Platts benchmark
         "laycan_open": 9,              # ⏳ PLACEHOLDER
         "laycan_close": 13,            # ⏳ PLACEHOLDER
@@ -190,7 +193,7 @@ ROUTES: list[dict] = [
         "distance_nm": 4_800,
         "transit_days": 15,            # 4800 NM ÷ 13 kn ÷ 24 ≈ 15.4 d
         "cargo_requirement_dwt": 50_000,
-        "cargo_type": "coking_coal",
+        "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Real East Coast Australia→India trade lane
         "laycan_open": 12,             # ⏳ PLACEHOLDER
         "laycan_close": 16,            # ⏳ PLACEHOLDER
@@ -202,7 +205,7 @@ ROUTES: list[dict] = [
         "distance_nm": 4_600,
         "transit_days": 15,            # 4600 NM ÷ 13 kn ÷ 24 ≈ 14.7 d
         "cargo_requirement_dwt": 50_000,
-        "cargo_type": "coking_coal",
+        "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Direct documented Gladstone→Paradip voyage
         "laycan_open": 15,             # ⏳ PLACEHOLDER
         "laycan_close": 19,            # ⏳ PLACEHOLDER
@@ -214,7 +217,7 @@ ROUTES: list[dict] = [
         "distance_nm": 4_700,
         "transit_days": 15,            # 4700 NM ÷ 13 kn ÷ 24 ≈ 15.1 d
         "cargo_requirement_dwt": 40_000,
-        "cargo_type": "coking_coal",
+        "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "FLAG",       # Plausible but Alpha extension, not benchmark
         "laycan_open": 18,             # ⏳ PLACEHOLDER
         "laycan_close": 22,            # ⏳ PLACEHOLDER
@@ -226,7 +229,7 @@ ROUTES: list[dict] = [
         "distance_nm": 4_450,
         "transit_days": 14,            # 4450 NM ÷ 13 kn ÷ 24 ≈ 14.3 d
         "cargo_requirement_dwt": 50_000,
-        "cargo_type": "coking_coal",
+        "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Dalrymple Bay explicit in Australia→India assessment
         "laycan_open": 21,             # ⏳ PLACEHOLDER
         "laycan_close": 25,            # ⏳ PLACEHOLDER
@@ -238,7 +241,7 @@ ROUTES: list[dict] = [
         "distance_nm": 7_800,
         "transit_days": 25,            # 7800 NM ÷ 13 kn ÷ 24 = 25.0 d
         "cargo_requirement_dwt": 50_000,
-        "cargo_type": "metallurgical_coal",
+        "cargo_type": "metallurgical_coal",  # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Platts explicitly assesses Vancouver→Vizag met-coal
         "laycan_open": 24,             # ⏳ PLACEHOLDER
         "laycan_close": 28,            # ⏳ PLACEHOLDER
@@ -250,7 +253,7 @@ ROUTES: list[dict] = [
         "distance_nm": 9_500,
         "transit_days": 30,            # 9500 NM ÷ 13 kn ÷ 24 ≈ 30.4 d
         "cargo_requirement_dwt": 50_000,
-        "cargo_type": "coking_coal",
+        "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "FLAG",       # Diversity/planning lane — see Assumption A-08
         "laycan_open": 27,             # ⏳ PLACEHOLDER
         "laycan_close": 29,            # ⏳ PLACEHOLDER

@@ -63,3 +63,34 @@ def compute_scores_bulk(
             lam=lam,
         )
     return scores
+
+
+def normalise_scores(
+    scores: dict[str, float],
+) -> dict[str, float]:
+    """Normalise a mapping of assignment scores to a 0–100 display scale.
+
+    UI-ONLY: the raw scores fed to the PuLP objective are never changed here.
+    Use this only to populate a "Normalised Score" display column.
+
+    Formula: norm = (score - min) / (max - min) * 100
+    Edge case: if all scores are identical (e.g. constant dummy rates),
+    returns 50.0 for all keys so the bar chart is not a flat zero line.
+
+    Args:
+        scores: Any dict mapping an arbitrary key to a float score.
+                Typically ``{assignment_label: raw_score}`` built in app.py.
+
+    Returns:
+        Dict with the same keys and normalised float values (0.0 – 100.0).
+    """
+    if not scores:
+        return {}
+    values = list(scores.values())
+    min_s, max_s = min(values), max(values)
+    if max_s == min_s:
+        return {k: 50.0 for k in scores}
+    return {
+        k: round((v - min_s) / (max_s - min_s) * 100, 1)
+        for k, v in scores.items()
+    }

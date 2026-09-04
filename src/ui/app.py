@@ -29,6 +29,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.solver.parameters import LAMBDA, ROUTES, VESSELS
+from src.solver.risk import normalise_scores
 from src.solver.solver import AssignmentResult, solve
 
 # ── Page config ────────────────────────────────────────────────────────────────
@@ -181,12 +182,25 @@ else:
         st.markdown("### 📋 Optimal Vessel–Route Assignment")
 
         df = pd.DataFrame(result.assignments)
+
+        # ── P-04: Normalised score (display-only; raw score drives the MILP) ──
+        raw_scores = {i: row["score"] for i, row in enumerate(result.assignments)}
+        norm_map = normalise_scores(raw_scores)
+        df["norm_score"] = [norm_map[i] for i in range(len(df))]
+
+        # ── P-05: Lane type badge — FLAG = Alpha planning lane ──────────────
+        df["lane_type"] = df["review_status"].map(
+            {"KEEP": "Benchmark", "FLAG": "Alpha lane"}
+        ).fillna("Benchmark")
+
         # Rename columns for display
         df_display = df.rename(columns={
             "vessel_id":            "Vessel",
             "route_id":             "Route",
             "date":                 "Loading Date",
             "score":                "Risk-Adj. Score",
+            "norm_score":           "Norm. Score (0-100)",
+            "lane_type":            "Lane Type",
             "p50_rate":             "P50 Rate ($/t)",
             "p10_rate":             "P10 Rate ($/t)",
             "p90_rate":             "P90 Rate ($/t)",
@@ -203,23 +217,38 @@ else:
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Risk-Adj. Score": st.column_config.NumberColumn(format="%.4f"),
-                "P50 Rate ($/t)":  st.column_config.NumberColumn(format="$%.2f"),
-                "P10 Rate ($/t)":  st.column_config.NumberColumn(format="$%.2f"),
-                "P90 Rate ($/t)":  st.column_config.NumberColumn(format="$%.2f"),
-                "Cargo (DWT)":     st.column_config.NumberColumn(format="%d"),
-                "Vessel Cap. (DWT)": st.column_config.NumberColumn(format="%d"),
+                "Risk-Adj. Score":    st.column_config.NumberColumn(format="%.4f"),
+                "Norm. Score (0-100)": st.column_config.ProgressColumn(
+                    format="%.1f",
+                    min_value=0,
+                    max_value=100,
+                    help="Score normalised 0-100 for visual comparison (display only — raw score drives the MILP)",
+                ),
+                "Lane Type":          st.column_config.TextColumn(
+                    help="Benchmark = directly evidenced Platts route. Alpha lane = planning extension (FLAG)."
+                ),
+                "P50 Rate ($/t)":     st.column_config.NumberColumn(format="$%.2f"),
+                "P10 Rate ($/t)":     st.column_config.NumberColumn(format="$%.2f"),
+                "P90 Rate ($/t)":     st.column_config.NumberColumn(format="$%.2f"),
+                "Cargo (DWT)":        st.column_config.NumberColumn(format="%d"),
+                "Vessel Cap. (DWT)":  st.column_config.NumberColumn(format="%d"),
             },
         )
 
-        # Score bar chart
-        st.markdown("### 📊 Score Breakdown per Assignment")
+        # Score bar chart — bars coloured by lane type (P-05)
+        st.markdown("### Score Breakdown per Assignment")
+        bar_labels = [f"{r['vessel_id']} -> {r['route_id']}" for r in result.assignments]
+        bar_colors = [
+            "#f0883e" if r.get("review_status") == "FLAG" else "#58a6ff"
+            for r in result.assignments
+        ]
+        bar_scores = [norm_map[i] for i in range(len(result.assignments))]
         fig = go.Figure(
             go.Bar(
-                x=[f"{r['vessel_id']} → {r['route_id']}" for r in result.assignments],
-                y=[r["score"] for r in result.assignments],
-                marker_color="#58a6ff",
-                text=[f"{r['score']:.3f}" for r in result.assignments],
+                x=bar_labels,
+                y=bar_scores,
+                marker_color=bar_colors,
+                text=[f"{s:.1f}" for s in bar_scores],
                 textposition="outside",
             )
         )
@@ -227,10 +256,20 @@ else:
             template="plotly_dark",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            xaxis_title="Assignment (Vessel → Route)",
-            yaxis_title="Risk-Adjusted Score",
+            xaxis_title="Assignment (Vessel -> Route)",
+            yaxis_title="Normalised Score (0-100)",
+            yaxis_range=[0, 115],
             margin=dict(t=20, b=60),
             height=350,
+            annotations=[
+                dict(
+                    x=0.99, y=0.98, xref="paper", yref="paper",
+                    text="<span style='color:#58a6ff'>blue = Benchmark</span>  "
+                         "<span style='color:#f0883e'>orange = Alpha lane (FLAG)</span>",
+                    showarrow=False, align="right",
+                    font=dict(size=11),
+                )
+            ],
         )
         st.plotly_chart(fig, use_container_width=True)
 

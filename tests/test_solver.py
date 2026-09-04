@@ -144,7 +144,11 @@ class TestSolver:
                 f"Route {rid} assigned on day {day_offset}, "
                 f"outside laycan [{route['laycan_open']}, {route['laycan_close']}]"
             )
-            assert 1 <= day_offset <= 30, f"Loading date outside 30-day horizon (day {day_offset})"
+            # P-11 clarification: the assertion below is correct.
+            # _build_date_index starts at offset 1 (tomorrow), so offset 0 is
+            # never in the date index even if laycan_open=0.  The bound 1..30
+            # reflects the actual assignable horizon, not a domain constraint.
+            assert 1 <= day_offset <= 30, f"Loading date outside 30-day horizon (offset {day_offset})"
 
     def test_date_index_forward_looking(self) -> None:
         """_build_date_index must generate t+1..t+30 forward-looking dates."""
@@ -188,6 +192,7 @@ class TestSolver:
             "p50_rate", "p10_rate", "p90_rate",
             "origin", "destination", "cargo_dwt",
             "vessel_capacity_dwt", "transit_days",
+            "review_status", "cargo_type",  # P-05: needed for FLAG lane badge in UI
         }
         result = solve(lam=0.5, forecast_path=dummy_forecast_path)
         for i, assignment in enumerate(result.assignments):

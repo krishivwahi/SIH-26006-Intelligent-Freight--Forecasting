@@ -21,30 +21,34 @@ import pandas as pd
 DEFAULT_VESSELS: List[str] = [f"V-{i:03d}" for i in range(1, 6)]
 DEFAULT_ROUTES: List[str] = [f"R-{i:02d}" for i in range(1, 11)]
 
-# Placeholder multipliers until Researcher 2 delivers the real parameter matrix.
-# Route multipliers: different routes have different base rate levels due to
-# distance, port charges, and regional supply-demand.
+# Route multipliers — placeholder values pending calibration to the real matrix.
+# IMPORTANT: values for R-05..R-08 were originally written assuming US East Coast
+# origins (~9,000 NM). The real matrix swap moved those routes to Australian ports
+# (~4,600-4,800 NM). Multiplier VALUES need recalibration before Phase 2 switch;
+# COMMENTS below are updated to reflect the real port-to-port lanes.
 DEFAULT_ROUTE_MULTIPLIERS: Dict[str, float] = {
-    "R-01": 1.00,  # Australia East -> Vizag (benchmark route)
-    "R-02": 1.05,  # Australia East -> Paradip
-    "R-03": 1.08,  # Australia East -> Haldia
-    "R-04": 0.98,  # Australia East -> Gangavaram
-    "R-05": 1.15,  # US East Coast -> Vizag
-    "R-06": 1.18,  # US East Coast -> Paradip
-    "R-07": 1.22,  # US East Coast -> Haldia
-    "R-08": 1.12,  # US East Coast -> Gangavaram
-    "R-09": 1.10,  # Canada West -> Vizag
-    "R-10": 1.14,  # Canada West -> Paradip
+    "R-01": 1.00,  # Hay Point, Australia -> Visakhapatnam       (Platts benchmark)
+    "R-02": 1.05,  # Hay Point, Australia -> Paradip             (Platts benchmark)
+    "R-03": 1.08,  # Hay Point, Australia -> Haldia
+    "R-04": 0.98,  # Hay Point, Australia -> Gangavaram          (FLAG: Alpha extension)
+    "R-05": 1.15,  # Gladstone, Australia -> Visakhapatnam       (value needs recalibration)
+    "R-06": 1.18,  # Gladstone, Australia -> Paradip             (value needs recalibration)
+    "R-07": 1.22,  # Gladstone, Australia -> Haldia              (FLAG: Alpha extension; value needs recalibration)
+    "R-08": 1.12,  # Dalrymple Bay, Australia -> Paradip         (value needs recalibration)
+    "R-09": 1.10,  # Vancouver, Canada -> Visakhapatnam          (met-coal; ~7,800 NM)
+    "R-10": 1.14,  # Hampton Roads, USA -> Paradip               (FLAG: diversity lane; ~9,500 NM)
 }
 
-# Vessel multipliers: larger vessels get slightly lower per-ton rates
-# (economies of scale) while smaller ones pay a premium.
+# Vessel multipliers — placeholder values, not yet calibrated to the real fleet.
+# Real fleet is 1x Handysize + 4x Supramax (all similar size: 51k-57k DWT).
+# The wide spread below (0.95-1.07) was designed for a Capesize/Panamax/Supramax
+# tiered fleet that no longer matches. Recalibrate before Phase 2 switch.
 DEFAULT_VESSEL_MULTIPLIERS: Dict[str, float] = {
-    "V-001": 0.95,  # Capesize (largest, lowest rate per ton)
-    "V-002": 0.98,  # Capesize
-    "V-003": 1.00,  # Panamax (benchmark)
-    "V-004": 1.03,  # Panamax
-    "V-005": 1.07,  # Supramax (smallest in fleet, highest rate per ton)
+    "V-001": 0.95,  # MV TS INDEX      -- Handysize, 38,854 DWT  [IDLE: below cargo floor of all routes]
+    "V-002": 0.98,  # MV LOFTY MOUNTAIN   -- Supramax, 51,008 DWT
+    "V-003": 1.00,  # MV IMPERIAL FORTUNE -- Supramax, 53,505 DWT
+    "V-004": 1.03,  # MV VIENNA WOOD N    -- Supramax, 55,768 DWT
+    "V-005": 1.07,  # MV NORTH QUAY       -- Supramax, 57,016 DWT (largest in fleet)
 }
 
 DEFAULT_FILEPATH: str = os.path.join("data", "interim", "freight_forecast_30d.json")
