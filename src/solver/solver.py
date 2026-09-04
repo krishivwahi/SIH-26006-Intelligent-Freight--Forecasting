@@ -98,6 +98,7 @@ def _load_forecast(path: Path) -> list[dict]:
         FileNotFoundError: If the JSON does not exist.
         ValueError: If required fields are missing from any record.
     """
+    path = Path(path)
     if not path.exists():
         raise FileNotFoundError(
             f"Forecast JSON not found at {path}. "
