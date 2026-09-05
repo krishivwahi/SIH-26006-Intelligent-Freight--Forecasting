@@ -49,6 +49,9 @@ from src.solver.parameters import (
     ROUTES,
     VESSEL_MAP,
     VESSELS,
+    PORT_WAITING_DAYS,
+    DEMURRAGE_USD_PER_DAY,
+    calculate_daily_bunker_cost,
 )
 from src.solver.risk import compute_scores_bulk
 
@@ -234,6 +237,26 @@ def solve(
                 if key in score_lookup:
                     feasible.append(key)
 
+    # Pre-calculate net profit for each feasible triple
+    net_profit_lookup: dict[tuple[str, str, str], float] = {}
+    for key in feasible:
+        vid, rid, date_str = key
+        vessel = VESSEL_MAP[vid]
+        route = ROUTE_MAP[rid]
+        
+        # Freight revenue = Score ($/ton) * Cargo Lot (ton)
+        freight_revenue = score_lookup[key] * route["cargo_requirement_dwt"]
+        
+        # Voyage cost calculation
+        wait_days = PORT_WAITING_DAYS.get(route.get("destination", ""), 0.0)
+        total_days = route["transit_days"] + wait_days
+        bunker_cost = total_days * calculate_daily_bunker_cost(vessel)
+        port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
+        voyage_cost = bunker_cost + port_delay_cost
+        
+        net_profit = freight_revenue - voyage_cost
+        net_profit_lookup[key] = net_profit
+
     # ── 3. Build PuLP problem ───────────────────────────────────────────────────
     prob = pulp.LpProblem("VesselRouteAssignment", pulp.LpMaximize)
 
@@ -268,8 +291,8 @@ def solve(
                 # for a binary when the right-hand-side bound is tighter than any M.
                 x[key] = pulp.LpVariable(var_name, lowBound=0, upBound=0, cat="Continuous")
 
-    # Objective: maximise total risk-adjusted score
-    prob += pulp.lpSum(score_lookup[key] * x[key] for key in feasible), "TotalRiskAdjustedScore"
+    # Objective: maximise total Net Profit (Revenue - Voyage Costs)
+    prob += pulp.lpSum(net_profit_lookup[key] * x[key] for key in feasible), "TotalNetProfit"
 
     # Constraint 1: each vessel assigned to at most one route across all days
     for vessel in VESSELS:
@@ -320,12 +343,23 @@ def solve(
                 rec = rate_lookup.get(key, {})
                 vessel_info = VESSEL_MAP[vid]
                 route_info = ROUTE_MAP[rid]
+                # Re-calculate costs for output
+                wait_days = PORT_WAITING_DAYS.get(route_info.get("destination", ""), 0.0)
+                total_days = route_info["transit_days"] + wait_days
+                bunker_cost = total_days * calculate_daily_bunker_cost(vessel_info)
+                port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
+                voyage_cost = bunker_cost + port_delay_cost
+                freight_revenue = score_lookup[key] * route_info["cargo_requirement_dwt"]
+                net_profit = freight_revenue - voyage_cost
+
                 assignments.append(
                     {
                         "vessel_id": vid,
                         "route_id": rid,
                         "date": date_str,
                         "score": round(score_lookup[key], 4),
+                        "net_profit": round(net_profit, 2),
+                        "voyage_cost": round(voyage_cost, 2),
                         "p50_rate": round(float(rec.get("p50_rate", 0)), 2),
                         "p10_rate": round(float(rec.get("p10_rate", 0)), 2),
                         "p90_rate": round(float(rec.get("p90_rate", 0)), 2),
@@ -333,13 +367,8 @@ def solve(
                         "destination": route_info["destination"],
                         "cargo_dwt": route_info["cargo_requirement_dwt"],
                         "vessel_capacity_dwt": vessel_info["capacity_dwt"],
-                        # P-06: transit_days is planning metadata (informational).
-                        # It is NOT enforced as a constraint in the MILP — the
-                        # single-assignment-per-vessel constraint already prevents
-                        # double-use within the 30-day horizon for Alpha scope.
                         "transit_days": route_info["transit_days"],
-                        # P-05: review_status and cargo_type passed to UI so
-                        # FLAG lanes can be visually distinguished from benchmarks.
+                        "port_waiting_days": wait_days,
                         "review_status": route_info.get("review_status", "KEEP"),
                         "cargo_type": route_info.get("cargo_type", "coking_coal"),
                     }

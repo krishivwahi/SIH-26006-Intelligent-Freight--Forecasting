@@ -47,6 +47,41 @@ from __future__ import annotations
 # Formula: Score = p50 - LAMBDA * (p50 - p10)
 LAMBDA: float = 0.5
 
+# ── Voyage Cost Parameters (Phase 3) ───────────────────────────────────────────
+DEMURRAGE_USD_PER_DAY: float = 15000.0
+VLSFO_PRICE_USD_MT: float = 600.0
+MGO_PRICE_USD_MT: float = 800.0
+
+PORT_WAITING_DAYS: dict[str, float] = {
+    "Paradip": 1.0,
+    "Haldia": 2.0,
+    "Visakhapatnam": 1.0,
+    "Gangavaram": 1.0,
+}
+
+def calculate_daily_bunker_cost(vessel: dict) -> float:
+    """Calculate daily bunker cost assuming NO SCRUBBER (forces VLSFO for main engine)."""
+    # Main engine burns VLSFO (since HFO is not allowed without scrubber)
+    main_engine_cost = vessel["laden_fuel_mt_day"] * VLSFO_PRICE_USD_MT
+    
+    # Extract auxiliary fuel cost based on vessel notes
+    vid = vessel["vessel_id"]
+    if vid == "V-001":
+        aux_cost = 0.1 * MGO_PRICE_USD_MT
+    elif vid == "V-002":
+        aux_cost = 0.1 * MGO_PRICE_USD_MT
+    elif vid == "V-003":
+        aux_cost = 0.2 * MGO_PRICE_USD_MT
+    elif vid == "V-004":
+        aux_cost = 0.1 * MGO_PRICE_USD_MT
+    elif vid == "V-005":
+        # 2.5 MT/day HFO auxiliary -> replace with MGO
+        aux_cost = 2.5 * MGO_PRICE_USD_MT
+    else:
+        aux_cost = 0.0
+        
+    return main_engine_cost + aux_cost
+
 # ── Vessel matrix (5 vessels, Phase 1 Alpha scope) ────────────────────────────
 # Fields:
 #   vessel_id            : matches vessel_id in the JSON contract (frozen)
@@ -183,6 +218,7 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 40_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "KEEP",       # Haldia explicitly in Australia→India assessment
+        "draft_check_required": True,  # Domain constraint: don't reject solely on DWT
         "laycan_open": 5,              # V-005 earliest open (2026-09-09, offset 5)
         "laycan_close": 10,            # V-004 latest close  (2026-09-14, offset 10)
     },
@@ -231,6 +267,7 @@ ROUTES: list[dict] = [
         "cargo_requirement_dwt": 40_000,
         "cargo_type": "coking_coal",        # informational only — no vessel gear filter yet (TODO)
         "review_status": "FLAG",       # Plausible but Alpha extension, not benchmark
+        "draft_check_required": True,  # Domain constraint: don't reject solely on DWT
         "laycan_open": 13,             # V-005 earliest open (2026-09-17, offset 13)
         "laycan_close": 18,            # V-004 latest close  (2026-09-22, offset 18)
     },

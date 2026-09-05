@@ -200,6 +200,8 @@ else:
             "date":                 "Loading Date",
             "score":                "Risk-Adj. Score",
             "norm_score":           "Norm. Score (0-100)",
+            "net_profit":           "Net Profit ($)",
+            "voyage_cost":          "Voyage Cost ($)",
             "lane_type":            "Lane Type",
             "p50_rate":             "P50 Rate ($/t)",
             "p10_rate":             "P10 Rate ($/t)",
@@ -209,6 +211,7 @@ else:
             "cargo_dwt":            "Cargo (DWT)",
             "vessel_capacity_dwt":  "Vessel Cap. (DWT)",
             "transit_days":         "Transit (days)",
+            "port_waiting_days":    "Port Wait (days)",
         })
 
         # Colour-code score column
@@ -227,11 +230,14 @@ else:
                 "Lane Type":          st.column_config.TextColumn(
                     help="Benchmark = directly evidenced Platts route. Alpha lane = planning extension (FLAG)."
                 ),
+                "Net Profit ($)":     st.column_config.NumberColumn(format="$%.2f"),
+                "Voyage Cost ($)":    st.column_config.NumberColumn(format="$%.2f"),
                 "P50 Rate ($/t)":     st.column_config.NumberColumn(format="$%.2f"),
                 "P10 Rate ($/t)":     st.column_config.NumberColumn(format="$%.2f"),
                 "P90 Rate ($/t)":     st.column_config.NumberColumn(format="$%.2f"),
                 "Cargo (DWT)":        st.column_config.NumberColumn(format="%d"),
                 "Vessel Cap. (DWT)":  st.column_config.NumberColumn(format="%d"),
+                "Port Wait (days)":   st.column_config.NumberColumn(format="%.1f"),
             },
         )
 
