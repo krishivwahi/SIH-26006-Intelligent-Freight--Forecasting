@@ -86,6 +86,7 @@ class AssignmentResult:
     num_routes: int = len(ROUTES)
     horizon_days: int = HORIZON_DAYS
     vlsfo_price_used: float = VLSFO_PRICE_USD_MT
+    freight_multiplier_used: float = 1.0
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
@@ -187,14 +188,16 @@ def solve(
     forecast_path: Path = FORECAST_JSON_PATH,
     base_date: date | None = None,
     vlsfo_price: float = VLSFO_PRICE_USD_MT,
+    freight_multiplier: float = 1.0,
 ) -> AssignmentResult:
     """Run the MILP solver and return a structured assignment result.
 
     Args:
-        lam:           Risk aversion parameter λ ∈ [0, 1].
-        forecast_path: Path to the contract JSON (default: data/interim/...).
-        base_date:     Day 0 of the 30-day horizon (default: today).
-        vlsfo_price:   Bunker fuel price ($/MT) for VLSFO (default: parameters.py).
+        lam:                Risk aversion parameter λ ∈ [0, 1].
+        forecast_path:      Path to the contract JSON (default: data/interim/...).
+        base_date:          Day 0 of the 30-day horizon (default: today).
+        vlsfo_price:        Bunker fuel price ($/MT) for VLSFO (default: parameters.py).
+        freight_multiplier: What-if freight rate multiplier (default: 1.0 = baseline, 0.8 = -20% crash).
 
     Returns:
         AssignmentResult with assignments list, status, objective, and timing.
@@ -204,6 +207,16 @@ def solve(
 
     # ── 1. Load forecast and compute risk-adjusted scores ──────────────────
     records = _load_forecast(forecast_path)
+    if abs(freight_multiplier - 1.0) > 1e-4:
+        scaled_records = []
+        for r in records:
+            r_copy = dict(r)
+            r_copy["p10_rate"] = float(r["p10_rate"]) * freight_multiplier
+            r_copy["p50_rate"] = float(r["p50_rate"]) * freight_multiplier
+            r_copy["p90_rate"] = float(r["p90_rate"]) * freight_multiplier
+            scaled_records.append(r_copy)
+        records = scaled_records
+
     score_lookup = compute_scores_bulk(records, lam=lam)
 
     # Build a secondary lookup for raw rates (needed in result rows)
@@ -389,4 +402,5 @@ def solve(
         solve_time_ms=round(solve_ms, 1),
         lambda_used=lam,
         vlsfo_price_used=vlsfo_price,
+        freight_multiplier_used=freight_multiplier,
     )

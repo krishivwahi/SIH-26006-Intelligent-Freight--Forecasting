@@ -226,3 +226,10 @@ class TestSolver:
         assert result_high.objective_value <= result_low.objective_value, (
             "Higher λ should penalise downside more, yielding lower or equal objective."
         )
+
+    def test_freight_multiplier_scales_revenue(self, dummy_forecast_path: Path) -> None:
+        """Freight multiplier > 1.0 increases objective value."""
+        base_result = solve(lam=0.5, forecast_path=dummy_forecast_path, freight_multiplier=1.0)
+        shocked_result = solve(lam=0.5, forecast_path=dummy_forecast_path, freight_multiplier=1.2)
+        assert shocked_result.objective_value > base_result.objective_value
+        assert shocked_result.freight_multiplier_used == 1.2
