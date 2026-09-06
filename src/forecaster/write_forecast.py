@@ -80,6 +80,12 @@ DEFAULT_VESSEL_MULTIPLIERS: Dict[str, float] = {
     "V-005": 1.02,  # MV NORTH QUAY       — Supramax,  57,016 DWT  (+2% largest)
 }
 
+# ---------------------------------------------------------------------------
+# Conversion factor from Baltic Dry Index proxy points (e.g. ~1400) to $/MT spot freight rate (~$21/MT)
+# S&P Global Platts Hay Point -> Visakhapatnam benchmark spot rate is typically $15–$25/MT.
+# ---------------------------------------------------------------------------
+BDI_TO_USD_PER_MT_SCALE: float = 0.015
+
 DEFAULT_FILEPATH: str = os.path.join("data", "interim", "freight_forecast_30d.json")
 
 
@@ -90,6 +96,7 @@ def create_forecast_records(
     routes: Optional[List[str]] = None,
     route_multipliers: Optional[Dict[str, float]] = None,
     vessel_multipliers: Optional[Dict[str, float]] = None,
+    rate_scale: float = 1.0,
 ) -> List[Dict]:
     """Expand base rate predictions into the full vessel-route-day matrix.
 
@@ -101,6 +108,7 @@ def create_forecast_records(
         routes: List of route IDs. Defaults to ``DEFAULT_ROUTES``.
         route_multipliers: Route-specific rate multipliers.
         vessel_multipliers: Vessel-specific rate multipliers.
+        rate_scale: Optional scaling factor (e.g. BDI_TO_USD_PER_MT_SCALE). Defaults to 1.0.
 
     Returns:
         List of dicts conforming to the CONTRACT.md JSON schema, with
@@ -127,7 +135,7 @@ def create_forecast_records(
             v_mult = vessel_multipliers.get(vessel, 1.0)
             for route in routes:
                 r_mult = route_multipliers.get(route, 1.0)
-                combined = v_mult * r_mult
+                combined = v_mult * r_mult * rate_scale
                 records.append({
                     "date_index": forecast_date,
                     "vessel_id": vessel,
@@ -160,6 +168,62 @@ def write_forecast_json(
     with open(filepath, "w") as f:
         json.dump(records, f, indent=2)
 
+    return os.path.abspath(filepath)
+
+
+def write_forecast_excel(
+    records: List[Dict],
+    filepath: Optional[str] = None,
+) -> str:
+    """Write forecast records to an enriched multi-sheet Excel workbook.
+
+    Sheets:
+      - Forecast_Enriched: Full table with Vessel Names, DWT, Ports, Cargo lots.
+      - Contract_Raw: Exact CONTRACT.md schema.
+      - Route_Averages: Summary mean rates per route.
+    """
+    from src.solver.parameters import ROUTE_MAP, VESSEL_MAP
+
+    if filepath is None:
+        filepath = os.path.splitext(DEFAULT_FILEPATH)[0] + ".xlsx"
+
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    df = pd.DataFrame(records)
+    df_enriched = df.copy()
+    df_enriched.insert(2, "vessel_name", df_enriched["vessel_id"].map(lambda vid: VESSEL_MAP.get(vid, {}).get("vessel_name", "")))
+    df_enriched.insert(3, "vessel_type", df_enriched["vessel_id"].map(lambda vid: VESSEL_MAP.get(vid, {}).get("vessel_type", "")))
+    df_enriched.insert(4, "vessel_dwt", df_enriched["vessel_id"].map(lambda vid: VESSEL_MAP.get(vid, {}).get("capacity_dwt", 0)))
+    df_enriched.insert(6, "origin", df_enriched["route_id"].map(lambda rid: ROUTE_MAP.get(rid, {}).get("origin", "")))
+    df_enriched.insert(7, "destination", df_enriched["route_id"].map(lambda rid: ROUTE_MAP.get(rid, {}).get("destination", "")))
+    df_enriched.insert(8, "distance_nm", df_enriched["route_id"].map(lambda rid: ROUTE_MAP.get(rid, {}).get("distance_nm", 0)))
+    df_enriched.insert(9, "cargo_mt", df_enriched["route_id"].map(lambda rid: ROUTE_MAP.get(rid, {}).get("cargo_requirement_dwt", 0)))
+
+    summary = (
+        df_enriched.groupby(["route_id", "origin", "destination"])
+        .agg({"p10_rate": "mean", "p50_rate": "mean", "p90_rate": "mean"})
+        .round(2)
+        .reset_index()
+    )
+
+    with pd.ExcelWriter(filepath, engine="openpyxl") as writer:
+        df_enriched.to_excel(writer, sheet_name="Forecast_Enriched", index=False)
+        df.to_excel(writer, sheet_name="Contract_Raw", index=False)
+        summary.to_excel(writer, sheet_name="Route_Averages", index=False)
+
+    return os.path.abspath(filepath)
+
+
+def write_forecast_csv(
+    records: List[Dict],
+    filepath: Optional[str] = None,
+) -> str:
+    """Write forecast records to a flat CSV file."""
+    if filepath is None:
+        filepath = os.path.splitext(DEFAULT_FILEPATH)[0] + ".csv"
+
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    df = pd.DataFrame(records)
+    df.to_csv(filepath, index=False)
     return os.path.abspath(filepath)
 
 

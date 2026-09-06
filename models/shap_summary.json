@@ -1,0 +1,110 @@
+{
+  "global_importance": [
+    {
+      "feature": "freight_rate_rmean_7",
+      "importance": 47.2736
+    },
+    {
+      "feature": "freight_rate_rmean_14",
+      "importance": 43.3248
+    },
+    {
+      "feature": "horizon_step",
+      "importance": 14.773
+    },
+    {
+      "feature": "gscpi_rmean_30",
+      "importance": 14.1519
+    },
+    {
+      "feature": "iron_ore_rstd_30",
+      "importance": 12.1979
+    },
+    {
+      "feature": "day_of_year",
+      "importance": 10.5733
+    },
+    {
+      "feature": "arima_pred",
+      "importance": 10.4831
+    },
+    {
+      "feature": "gscpi_rmean_14",
+      "importance": 8.9349
+    },
+    {
+      "feature": "coal_rstd_30",
+      "importance": 6.4085
+    },
+    {
+      "feature": "grain_rmean_30",
+      "importance": 4.8857
+    }
+  ],
+  "local_attribution": {
+    "base_value": 1457.6338,
+    "predicted_value": 1302.1956,
+    "top_contributions": [
+      {
+        "feature": "freight_rate_rmean_7",
+        "feature_value": 1290.2229,
+        "shap_value": -55.1234,
+        "abs_shap": 55.123396723770824
+      },
+      {
+        "feature": "freight_rate_rmean_14",
+        "feature_value": 1320.6071,
+        "shap_value": -34.5243,
+        "abs_shap": 34.52425239171506
+      },
+      {
+        "feature": "sp500_rmean_30",
+        "feature_value": 7710.8063,
+        "shap_value": -14.6187,
+        "abs_shap": 14.618704480146153
+      },
+      {
+        "feature": "arima_pred",
+        "feature_value": 1275.65,
+        "shap_value": -13.5046,
+        "abs_shap": 13.504613395646247
+      },
+      {
+        "feature": "iron_ore_rstd_30",
+        "feature_value": 0.0,
+        "shap_value": -10.303,
+        "abs_shap": 10.302953176720962
+      },
+      {
+        "feature": "gscpi_rmean_30",
+        "feature_value": 0.8047,
+        "shap_value": 7.5857,
+        "abs_shap": 7.58571780650897
+      },
+      {
+        "feature": "freight_rate_rmean_30",
+        "feature_value": 1372.6747,
+        "shap_value": -6.7697,
+        "abs_shap": 6.769723087521263
+      },
+      {
+        "feature": "horizon_step",
+        "feature_value": 1.0,
+        "shap_value": -6.0913,
+        "abs_shap": 6.091329457978444
+      },
+      {
+        "feature": "dxy_rmean_7",
+        "feature_value": 118.7479,
+        "shap_value": 5.9918,
+        "abs_shap": 5.991845564422371
+      },
+      {
+        "feature": "freight_rate_lag_14",
+        "feature_value": 1370.87,
+        "shap_value": -5.9036,
+        "abs_shap": 5.903599782550672
+      }
+    ]
+  }
+}

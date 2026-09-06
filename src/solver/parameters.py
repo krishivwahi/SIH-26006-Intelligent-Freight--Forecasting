@@ -59,24 +59,24 @@ PORT_WAITING_DAYS: dict[str, float] = {
     "Gangavaram": 1.0,
 }
 
-def calculate_daily_bunker_cost(vessel: dict) -> float:
+def calculate_daily_bunker_cost(
+    vessel: dict,
+    vlsfo_price: float = VLSFO_PRICE_USD_MT,
+    mgo_price: float = MGO_PRICE_USD_MT,
+) -> float:
     """Calculate daily bunker cost assuming NO SCRUBBER (forces VLSFO for main engine)."""
     # Main engine burns VLSFO (since HFO is not allowed without scrubber)
-    main_engine_cost = vessel["laden_fuel_mt_day"] * VLSFO_PRICE_USD_MT
+    main_engine_cost = vessel["laden_fuel_mt_day"] * vlsfo_price
     
     # Extract auxiliary fuel cost based on vessel notes
     vid = vessel["vessel_id"]
-    if vid == "V-001":
-        aux_cost = 0.1 * MGO_PRICE_USD_MT
-    elif vid == "V-002":
-        aux_cost = 0.1 * MGO_PRICE_USD_MT
+    if vid in ("V-001", "V-002", "V-004"):
+        aux_cost = 0.1 * mgo_price
     elif vid == "V-003":
-        aux_cost = 0.2 * MGO_PRICE_USD_MT
-    elif vid == "V-004":
-        aux_cost = 0.1 * MGO_PRICE_USD_MT
+        aux_cost = 0.2 * mgo_price
     elif vid == "V-005":
         # 2.5 MT/day HFO auxiliary -> replace with MGO
-        aux_cost = 2.5 * MGO_PRICE_USD_MT
+        aux_cost = 2.5 * mgo_price
     else:
         aux_cost = 0.0
         

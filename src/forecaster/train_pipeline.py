@@ -22,7 +22,13 @@ from src.data.load_real_data import load_and_merge_all
 from src.forecaster.baseline_arima import AutoARIMABaseline
 from src.forecaster.explainability import export_shap_summary
 from src.forecaster.quantile_model import QuantileForecaster
-from src.forecaster.write_forecast import create_forecast_records, write_forecast_json
+from src.forecaster.write_forecast import (
+    BDI_TO_USD_PER_MT_SCALE,
+    create_forecast_records,
+    write_forecast_csv,
+    write_forecast_excel,
+    write_forecast_json,
+)
 
 DEFAULT_DATA_PATH = os.path.join("data", "processed", "merged_market_data.csv")
 DEFAULT_MODEL_DIR = "models"
@@ -115,12 +121,22 @@ def run_training_pipeline(
     print("Generating 30-day forward quantile forecasts...")
     predictions = forecaster.predict(latest_row)
 
+    # Convert BDI proxy points (>100) to $/MT spot freight rate if needed
+    mean_p50 = float(predictions["p50"].mean()) if "p50" in predictions.columns else 1.0
+    scale = BDI_TO_USD_PER_MT_SCALE if mean_p50 > 100.0 else 1.0
+    if scale != 1.0:
+        print(f"Applying BDI-to-USD/MT calibration factor: {scale} (mean raw index: {mean_p50:.1f})")
+
     # Base date: today's date for live operations, or latest observed date in dataset
     run_base_date = date.today()
-    records = create_forecast_records(predictions, start_date=run_base_date)
+    records = create_forecast_records(predictions, start_date=run_base_date, rate_scale=scale)
 
     written_path = write_forecast_json(records, filepath=forecast_path)
+    excel_path = write_forecast_excel(records)
+    csv_path = write_forecast_csv(records)
     print(f"Contract JSON successfully written to: {written_path}")
+    print(f"Enriched Excel workbook written to: {excel_path}")
+    print(f"CSV export written to: {csv_path}")
 
     return {
         "status": "Success",
@@ -128,10 +144,13 @@ def run_training_pipeline(
         "arima_path": os.path.abspath(arima_path),
         "shap_path": os.path.abspath(shap_json_path),
         "forecast_path": os.path.abspath(written_path),
+        "excel_path": os.path.abspath(excel_path),
+        "csv_path": os.path.abspath(csv_path),
         "training_samples": len(X),
         "feature_count": X.shape[1],
         "horizon_days": 30,
         "base_date": run_base_date.isoformat(),
+        "rate_scale": scale,
     }
 
 

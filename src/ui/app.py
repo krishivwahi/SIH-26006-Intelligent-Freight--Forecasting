@@ -28,7 +28,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.solver.parameters import LAMBDA, ROUTES, VESSELS
+from src.solver.parameters import LAMBDA, ROUTES, VESSELS, VLSFO_PRICE_USD_MT
 from src.solver.risk import normalise_scores
 from src.solver.solver import AssignmentResult, solve
 
@@ -97,6 +97,21 @@ with st.sidebar:
     st.markdown(f"**Formula:**  `Score = P50 − {lam:.2f} × (P50 − P10)`")
     st.markdown("---")
 
+    vlsfo_price = st.slider(
+        label="⛽ VLSFO Bunker Fuel Price ($/MT)",
+        min_value=400.0,
+        max_value=1000.0,
+        value=float(VLSFO_PRICE_USD_MT),
+        step=25.0,
+        help=(
+            "Simulate vessel voyage cost sensitivity to bunker fuel price fluctuations.\n\n"
+            "Default: $600/MT (Singapore / Fujairah benchmark)."
+        ),
+    )
+
+    st.markdown(f"**Current Fuel Basis:** `${vlsfo_price:,.0f} / MT`")
+    st.markdown("---")
+
     run_clicked = st.button(
         "▶ Run Solver",
         type="primary",
@@ -127,19 +142,26 @@ if "result" not in st.session_state:
     st.session_state.result: AssignmentResult | None = None
 if "last_lam" not in st.session_state:
     st.session_state.last_lam: float = lam
+if "last_vlsfo" not in st.session_state:
+    st.session_state.last_vlsfo: float = vlsfo_price
 
-# Re-run automatically if λ changed after a previous solve
+# Re-run automatically if λ or fuel price changed after a previous solve
 lam_changed = (
     st.session_state.result is not None
     and abs(lam - st.session_state.last_lam) > 1e-6
 )
+vlsfo_changed = (
+    st.session_state.result is not None
+    and abs(vlsfo_price - st.session_state.last_vlsfo) > 1e-6
+)
 
-if run_clicked or lam_changed:
+if run_clicked or lam_changed or vlsfo_changed:
     with st.spinner("🔧 Running CBC solver…"):
         try:
-            result = solve(lam=lam)
+            result = solve(lam=lam, vlsfo_price=vlsfo_price)
             st.session_state.result = result
             st.session_state.last_lam = lam
+            st.session_state.last_vlsfo = vlsfo_price
         except FileNotFoundError as exc:
             st.error(str(exc))
             st.stop()

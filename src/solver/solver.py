@@ -42,15 +42,16 @@ from typing import Any
 import pulp
 
 from src.solver.parameters import (
+    DEMURRAGE_USD_PER_DAY,
     LAMBDA,
     LAYCAN_FEASIBLE,
     LAYCAN_MATRIX,
+    PORT_WAITING_DAYS,
     ROUTE_MAP,
     ROUTES,
     VESSEL_MAP,
     VESSELS,
-    PORT_WAITING_DAYS,
-    DEMURRAGE_USD_PER_DAY,
+    VLSFO_PRICE_USD_MT,
     calculate_daily_bunker_cost,
 )
 from src.solver.risk import compute_scores_bulk
@@ -84,6 +85,7 @@ class AssignmentResult:
     num_vessels: int = len(VESSELS)
     num_routes: int = len(ROUTES)
     horizon_days: int = HORIZON_DAYS
+    vlsfo_price_used: float = VLSFO_PRICE_USD_MT
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
@@ -184,6 +186,7 @@ def solve(
     lam: float = LAMBDA,
     forecast_path: Path = FORECAST_JSON_PATH,
     base_date: date | None = None,
+    vlsfo_price: float = VLSFO_PRICE_USD_MT,
 ) -> AssignmentResult:
     """Run the MILP solver and return a structured assignment result.
 
@@ -191,6 +194,7 @@ def solve(
         lam:           Risk aversion parameter λ ∈ [0, 1].
         forecast_path: Path to the contract JSON (default: data/interim/...).
         base_date:     Day 0 of the 30-day horizon (default: today).
+        vlsfo_price:   Bunker fuel price ($/MT) for VLSFO (default: parameters.py).
 
     Returns:
         AssignmentResult with assignments list, status, objective, and timing.
@@ -250,7 +254,7 @@ def solve(
         # Voyage cost calculation
         wait_days = PORT_WAITING_DAYS.get(route.get("destination", ""), 0.0)
         total_days = route["transit_days"] + wait_days
-        bunker_cost = total_days * calculate_daily_bunker_cost(vessel)
+        bunker_cost = total_days * calculate_daily_bunker_cost(vessel, vlsfo_price=vlsfo_price)
         port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
         voyage_cost = bunker_cost + port_delay_cost
         
@@ -346,7 +350,7 @@ def solve(
                 # Re-calculate costs for output
                 wait_days = PORT_WAITING_DAYS.get(route_info.get("destination", ""), 0.0)
                 total_days = route_info["transit_days"] + wait_days
-                bunker_cost = total_days * calculate_daily_bunker_cost(vessel_info)
+                bunker_cost = total_days * calculate_daily_bunker_cost(vessel_info, vlsfo_price=vlsfo_price)
                 port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
                 voyage_cost = bunker_cost + port_delay_cost
                 freight_revenue = score_lookup[key] * route_info["cargo_requirement_dwt"]
@@ -384,4 +388,5 @@ def solve(
         objective_value=round(obj_val, 4),
         solve_time_ms=round(solve_ms, 1),
         lambda_used=lam,
+        vlsfo_price_used=vlsfo_price,
     )
