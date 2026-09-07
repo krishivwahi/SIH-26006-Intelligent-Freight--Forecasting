@@ -160,6 +160,31 @@ class TestSolver:
             )
             assert 1 <= day_offset <= 30, f"Loading date outside 30-day horizon (offset {day_offset})"
 
+    def test_day2_laycan_matrix_structure(self) -> None:
+        """Verify Researcher 2 Day 2 Laycan Matrix coverage, fields, and feasibility."""
+        from src.solver.parameters import LAYCAN_MATRIX, ROUTES, VESSELS
+
+        assert len(LAYCAN_MATRIX) == len(VESSELS) * len(ROUTES)  # 50 pairs
+        required_keys = {
+            "vessel_id", "route_id", "laycan_open", "laycan_close",
+            "laycan_start", "laycan_end", "laycan_days", "feasible",
+            "feasibility_reason", "cargo_requirement_dwt", "vessel_capacity_dwt",
+        }
+        for (vid, rid), entry in LAYCAN_MATRIX.items():
+            missing = required_keys - entry.keys()
+            assert not missing, f"({vid}, {rid}) missing keys: {missing}"
+            assert entry["laycan_days"] == 3
+            assert entry["laycan_close"] - entry["laycan_open"] + 1 == 3
+            assert 1 <= entry["laycan_open"] <= 30
+            assert 1 <= entry["laycan_close"] <= 30
+            assert entry["vessel_id"] == vid
+            assert entry["route_id"] == rid
+            if vid == "V-001":
+                assert not entry["feasible"], "V-001 Handysize must be marked infeasible"
+                assert "below planning cargo" in entry["feasibility_reason"]
+            else:
+                assert entry["feasible"], f"Vessel {vid} on {rid} should be feasible"
+
     def test_date_index_forward_looking(self) -> None:
         """_build_date_index must generate t+1..t+30 forward-looking dates."""
         from src.solver.solver import _build_date_index
