@@ -46,6 +46,7 @@ from __future__ import annotations
 # Exposed here so the Streamlit slider can override it per-run.
 # Formula: Score = p50 - LAMBDA * (p50 - p10)
 LAMBDA: float = 0.5
+HORIZON_DAYS: int = 30
 
 # ── Voyage Cost Parameters (Phase 3) ───────────────────────────────────────────
 DEMURRAGE_USD_PER_DAY: float = 15000.0
