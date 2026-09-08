@@ -9,13 +9,16 @@ Alpha scope (AGENT_CONTEXT.md §3.4):
   - Objective: maximise Σ Score(v,r,t) * x[v,r,t]
   - Constraints:
       1. Each vessel used at most once across all routes and days
-      2. Each (route, day) served by at most one vessel
+      2. Each route served by at most one vessel across ALL days in its laycan window
+         (one route = one physical cargo demand = one ship total; the MILP picks the
+          optimal (vessel, loading-day) pair from all candidates in the window)
       3. Laycan timing: x[v,r,t] = 0 outside [laycan_open, laycan_close] per route
       4. Capacity: vessel.capacity_dwt >= route.cargo_requirement_dwt (enforced by
          filtering infeasible pairings, not Big-M — Big-M comes with real data Day 2)
 
 Day 1  → constant placeholder rates, fake laycan windows → proves mechanics work
-Day 2  → real vessel/route matrix in parameters.py, real Big-M constraints
+Day 2  → real vessel/route matrix in parameters.py, real Big-M constraints from
+          Researcher_2_Day_2_Laycan_Matrix.xlsx via LAYCAN_MATRIX in parameters.py
 Day 3  → real forecast JSON replaces dummy JSON, no code change needed here
 
 Date-offset convention (shared with dummy_generator.py):
@@ -39,12 +42,17 @@ from typing import Any
 import pulp
 
 from src.solver.parameters import (
+    DEMURRAGE_USD_PER_DAY,
     LAMBDA,
+    LAYCAN_FEASIBLE,
     LAYCAN_MATRIX,
+    PORT_WAITING_DAYS,
     ROUTE_MAP,
     ROUTES,
     VESSEL_MAP,
     VESSELS,
+    VLSFO_PRICE_USD_MT,
+    calculate_daily_bunker_cost,
 )
 from src.solver.risk import compute_scores_bulk
 
@@ -77,15 +85,16 @@ class AssignmentResult:
     num_vessels: int = len(VESSELS)
     num_routes: int = len(ROUTES)
     horizon_days: int = HORIZON_DAYS
+    vlsfo_price_used: float = VLSFO_PRICE_USD_MT
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
-def _load_forecast(path: Path | str) -> list[dict]:
+def _load_forecast(path: Path) -> list[dict]:
     """Load and validate the contract JSON.
 
     Args:
-        path: Path to freight_forecast_30d.json (Path or str).
+        path: Path to freight_forecast_30d.json.
 
     Returns:
         List of forecast records.
@@ -139,26 +148,9 @@ def _build_date_index(base_date: date, horizon: int) -> list[str]:
     return [(base_date + timedelta(days=d)).strftime("%Y-%m-%d") for d in range(1, horizon + 1)]
 
 
-def _is_laycan_valid(
-    day_offset: int,
-    route: dict,
-    vessel_id: str | None = None,
-    laycan_matrix: dict[tuple[str, str], dict] | None = None,
-) -> bool:
-    """Return True if day_offset falls within the vessel-route laycan window.
-
-    If a pairwise laycan matrix is provided (Day 2 Laycan Matrix),
-    checks the specific (vessel, route) 3-day laycan window and feasibility.
-    Otherwise falls back to route-level [laycan_open, laycan_close].
-    """
-    if vessel_id is not None and laycan_matrix is not None:
-        key = (vessel_id, route.get("route_id", ""))
-        if key in laycan_matrix:
-            entry = laycan_matrix[key]
-            if not entry.get("feasible", True):
-                return False
-            return entry["laycan_open"] <= day_offset <= entry["laycan_close"]
-    return route.get("laycan_open", 0) <= day_offset <= route.get("laycan_close", 30)
+def _is_laycan_valid(day_offset: int, route: dict) -> bool:
+    """Return True if day_offset falls within the route's laycan window."""
+    return route["laycan_open"] <= day_offset <= route["laycan_close"]
 
 
 def _is_capacity_feasible(vessel: dict, route: dict) -> bool:
@@ -169,15 +161,21 @@ def _is_capacity_feasible(vessel: dict, route: dict) -> bool:
 def _is_min_cargo_feasible(vessel: dict, route: dict) -> bool:
     """Return True if the route's cargo lot meets the vessel's commercial loading floor.
 
-    P-07 note: this filter is defined but NOT wired into the feasible-triple loop.
-    Wiring it with the current Alpha matrix makes R-03 and R-07 (40,000 MT cargo)
-    infeasible for all vessels, because every Supramax min_cargo_dwt (~85 % of DWT)
-    exceeds 40,000 MT.  The team must either:
-      a) Lower some cargo lots to match real vessel floors, OR
-      b) Confirm that Supramaxes do accept 40,000 MT lots on these lanes.
-    Once decided, replace the _is_capacity_feasible check below with both:
-        if not _is_capacity_feasible(vessel, route): continue
-        if not _is_min_cargo_feasible(vessel, route): continue
+    SUPERSEDED FOR ALPHA by LAYCAN_MATRIX (parameters.py):
+        Researcher_2_Day_2_Laycan_Matrix.xlsx explicitly marks V-002–V-005 as
+        feasible=YES on R-03 and R-07 (both 40k MT cargo), even though every
+        Supramax min_cargo_dwt (~85% DWT = 43k–48k MT) exceeds 40k MT.
+        This is a domain confirmation (TODO option a) that Supramaxes accept
+        40k MT lots on these lanes. The LAYCAN_MATRIX feasibility flag is the
+        authoritative source for Alpha; this function is NOT wired into the
+        feasible-triple loop.
+
+    RETAIN FOR PHASE 2:
+        Keep this function as documentation. If real commercial floors differ
+        from the 85%-DWT planning assumption, wire both filters:
+            if not _is_capacity_feasible(vessel, route): continue
+            if not _is_min_cargo_feasible(vessel, route): continue
+        and remove the relevant LAYCAN_MATRIX override.
     """
     return route["cargo_requirement_dwt"] >= vessel.get("min_cargo_dwt", 0)
 
@@ -186,8 +184,9 @@ def _is_min_cargo_feasible(vessel: dict, route: dict) -> bool:
 
 def solve(
     lam: float = LAMBDA,
-    forecast_path: Path | str = FORECAST_JSON_PATH,
+    forecast_path: Path = FORECAST_JSON_PATH,
     base_date: date | None = None,
+    vlsfo_price: float = VLSFO_PRICE_USD_MT,
 ) -> AssignmentResult:
     """Run the MILP solver and return a structured assignment result.
 
@@ -195,6 +194,7 @@ def solve(
         lam:           Risk aversion parameter λ ∈ [0, 1].
         forecast_path: Path to the contract JSON (default: data/interim/...).
         base_date:     Day 0 of the 30-day horizon (default: today).
+        vlsfo_price:   Bunker fuel price ($/MT) for VLSFO (default: parameters.py).
 
     Returns:
         AssignmentResult with assignments list, status, objective, and timing.
@@ -214,36 +214,89 @@ def solve(
 
     date_strings = _build_date_index(base_date, HORIZON_DAYS)
 
-    # ── 2. Build feasible (vessel, route, day_offset) triples ─────────────
+    # ── 2. Build feasible (vessel, route, day_offset) triples ─────────────────
     # A triple is feasible if:
-    #   a) the day_offset is within the vessel-route's 3-day laycan window
-    #   b) the vessel has enough capacity for the route's cargo
-    #   c) a score exists in the lookup (i.e. the forecast JSON covers it)
+    #   a) LAYCAN_MATRIX marks (vessel, route) as feasible (DWT >= cargo)
+    #   b) the day_offset falls within THIS vessel's specific laycan window
+    #      (per-vessel windows from Day 2 xlsx, not the old route-level envelope)
+    #   c) a score exists in the score_lookup (forecast JSON covers this triple)
+    #
+    # Infeasible (vessel, route) pairs (all V-001 rows) are NOT added to the
+    # feasible list — they will be explicitly forbidden by Big-M upper_bound=0
+    # constraints in step 3 so the MILP certificate is complete.
     feasible: list[tuple[str, str, str]] = []
     for vessel in VESSELS:
         vid = vessel["vessel_id"]
         for route in ROUTES:
             rid = route["route_id"]
-            if not _is_capacity_feasible(vessel, route):
-                continue
+            vr_entry = LAYCAN_MATRIX.get((vid, rid))
+            if vr_entry is None or not vr_entry["feasible"]:
+                continue  # capacity-infeasible — forbidden by Big-M below
+            lc_open  = vr_entry["laycan_open"]
+            lc_close = vr_entry["laycan_close"]
             for offset, date_str in enumerate(date_strings, start=1):
-                if not _is_laycan_valid(offset, route, vessel_id=vid, laycan_matrix=LAYCAN_MATRIX):
-                    continue
+                if not (lc_open <= offset <= lc_close):
+                    continue  # outside THIS vessel's laycan window
                 key = (vid, rid, date_str)
                 if key in score_lookup:
                     feasible.append(key)
 
-    # ── 3. Build PuLP problem ──────────────────────────────────────────────
+    # Pre-calculate net profit for each feasible triple
+    net_profit_lookup: dict[tuple[str, str, str], float] = {}
+    for key in feasible:
+        vid, rid, date_str = key
+        vessel = VESSEL_MAP[vid]
+        route = ROUTE_MAP[rid]
+        
+        # Freight revenue = Score ($/ton) * Cargo Lot (ton)
+        freight_revenue = score_lookup[key] * route["cargo_requirement_dwt"]
+        
+        # Voyage cost calculation
+        wait_days = PORT_WAITING_DAYS.get(route.get("destination", ""), 0.0)
+        total_days = route["transit_days"] + wait_days
+        bunker_cost = total_days * calculate_daily_bunker_cost(vessel, vlsfo_price=vlsfo_price)
+        port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
+        voyage_cost = bunker_cost + port_delay_cost
+        
+        net_profit = freight_revenue - voyage_cost
+        net_profit_lookup[key] = net_profit
+
+    # ── 3. Build PuLP problem ───────────────────────────────────────────────────
     prob = pulp.LpProblem("VesselRouteAssignment", pulp.LpMaximize)
 
     # Binary variable for each feasible triple
     x: dict[tuple[str, str, str], pulp.LpVariable] = {}
     for key in feasible:
-        var_name = "x_{}_{}_{}" .format(*key).replace("-", "_")
+        var_name = "x_{}_{}_{}".format(*key).replace("-", "_")
         x[key] = pulp.LpVariable(var_name, cat="Binary")
 
-    # Objective: maximise total risk-adjusted score
-    prob += pulp.lpSum(score_lookup[key] * x[key] for key in feasible), "TotalRiskAdjustedScore"
+    # ── Big-M: explicitly forbid all capacity-infeasible (vessel, route) triples
+    # The xlsx instructs: "FORBID (set assignment upper bound to 0)" for V-001.
+    # We do this by adding a dedicated variable with ub=0 for every (V-001, route,
+    # day) triple that is in the horizon but was excluded from the feasible list.
+    # This makes the infeasibility certificate visible in the LP file and satisfies
+    # the Day 2 handover instruction from Researcher 2 (TechLead_2_Handover sheet).
+    for vessel in VESSELS:
+        vid = vessel["vessel_id"]
+        for route in ROUTES:
+            rid = route["route_id"]
+            if LAYCAN_FEASIBLE.get((vid, rid), True):
+                continue  # feasible pair — already has binary vars above
+            # Infeasible pair: create x=0 upper-bound variables for all horizon days
+            vr_entry = LAYCAN_MATRIX.get((vid, rid), {})
+            lc_open  = vr_entry.get("laycan_open",  1)
+            lc_close = vr_entry.get("laycan_close", 30)
+            for offset, date_str in enumerate(date_strings, start=1):
+                if not (lc_open <= offset <= lc_close):
+                    continue
+                key = (vid, rid, date_str)
+                var_name = "x_{}_{}_{}".format(*key).replace("-", "_")
+                # upper_bound=0 hard-forces this variable to 0 — the Big-M equivalent
+                # for a binary when the right-hand-side bound is tighter than any M.
+                x[key] = pulp.LpVariable(var_name, lowBound=0, upBound=0, cat="Continuous")
+
+    # Objective: maximise total Net Profit (Revenue - Voyage Costs)
+    prob += pulp.lpSum(net_profit_lookup[key] * x[key] for key in feasible), "TotalNetProfit"
 
     # Constraint 1: each vessel assigned to at most one route across all days
     for vessel in VESSELS:
@@ -252,14 +305,16 @@ def solve(
         if vessel_vars:
             prob += pulp.lpSum(vessel_vars) <= 1, f"OneAssignmentPerVessel_{vid}"
 
-    # Constraint 2: each (route, day) served by at most one vessel
+    # Constraint 2: each route (= one cargo demand) served by exactly one vessel
+    # across ALL days in its laycan window.  The MILP evaluates every feasible
+    # (vessel, loading-day) combination and selects the single highest-scoring one.
+    # Previously this was scoped per (route, day), allowing multiple vessels to be
+    # assigned to the same route on different days — incorrect domain behaviour.
     for route in ROUTES:
         rid = route["route_id"]
-        for date_str in date_strings:
-            route_day_vars = [x[k] for k in feasible if k[1] == rid and k[2] == date_str]
-            if route_day_vars:
-                prob += pulp.lpSum(route_day_vars) <= 1, \
-                    f"OneVesselPerRouteDay_{rid}_{date_str}"
+        route_vars = [x[k] for k in feasible if k[1] == rid]
+        if route_vars:
+            prob += pulp.lpSum(route_vars) <= 1, f"OneVesselPerRoute_{rid}"
 
     # ── 4. Solve ───────────────────────────────────────────────────────────
     t0 = time.perf_counter()
@@ -292,12 +347,23 @@ def solve(
                 rec = rate_lookup.get(key, {})
                 vessel_info = VESSEL_MAP[vid]
                 route_info = ROUTE_MAP[rid]
+                # Re-calculate costs for output
+                wait_days = PORT_WAITING_DAYS.get(route_info.get("destination", ""), 0.0)
+                total_days = route_info["transit_days"] + wait_days
+                bunker_cost = total_days * calculate_daily_bunker_cost(vessel_info, vlsfo_price=vlsfo_price)
+                port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
+                voyage_cost = bunker_cost + port_delay_cost
+                freight_revenue = score_lookup[key] * route_info["cargo_requirement_dwt"]
+                net_profit = freight_revenue - voyage_cost
+
                 assignments.append(
                     {
                         "vessel_id": vid,
                         "route_id": rid,
                         "date": date_str,
                         "score": round(score_lookup[key], 4),
+                        "net_profit": round(net_profit, 2),
+                        "voyage_cost": round(voyage_cost, 2),
                         "p50_rate": round(float(rec.get("p50_rate", 0)), 2),
                         "p10_rate": round(float(rec.get("p10_rate", 0)), 2),
                         "p90_rate": round(float(rec.get("p90_rate", 0)), 2),
@@ -305,13 +371,8 @@ def solve(
                         "destination": route_info["destination"],
                         "cargo_dwt": route_info["cargo_requirement_dwt"],
                         "vessel_capacity_dwt": vessel_info["capacity_dwt"],
-                        # P-06: transit_days is planning metadata (informational).
-                        # It is NOT enforced as a constraint in the MILP — the
-                        # single-assignment-per-vessel constraint already prevents
-                        # double-use within the 30-day horizon for Alpha scope.
                         "transit_days": route_info["transit_days"],
-                        # P-05: review_status and cargo_type passed to UI so
-                        # FLAG lanes can be visually distinguished from benchmarks.
+                        "port_waiting_days": wait_days,
                         "review_status": route_info.get("review_status", "KEEP"),
                         "cargo_type": route_info.get("cargo_type", "coking_coal"),
                     }
@@ -327,4 +388,5 @@ def solve(
         objective_value=round(obj_val, 4),
         solve_time_ms=round(solve_ms, 1),
         lambda_used=lam,
+        vlsfo_price_used=vlsfo_price,
     )

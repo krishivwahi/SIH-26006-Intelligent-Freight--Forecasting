@@ -6,16 +6,15 @@ Streamlit UI shell — Phase 1 floor deliverable.
 Researcher 3 integration:
     - λ risk-aversion slider
     - Freight-rate what-if shock slider
-    - Automatic solver re-run when either control changes
-    - Fuel-price shock will be connected once the solver exposes
-      the fuel-cost interface from the integration team.
+    - VLSFO fuel-price what-if slider
+    - Automatic solver re-run when any control changes
 
 LANGUAGE NOTE:
     This file is 100% Python. Streamlit compiles it to a React frontend
     internally. There is no JavaScript, TypeScript, or HTML in this codebase.
 
 Layout:
-  Sidebar  → λ slider + Freight Shock slider + Run Solver button
+  Sidebar  → λ slider + Freight Shock slider + Fuel Price slider + Run Solver button
   Main     → status badge, objective metric, assignment table, data label footer
 
 Day 1: table renders from solver output (live PuLP call)
@@ -38,7 +37,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.solver.parameters import LAMBDA, ROUTES, VESSELS
+from src.solver.parameters import LAMBDA, ROUTES, VESSELS, VLSFO_PRICE_USD_MT
 from src.solver.risk import normalise_scores
 from src.solver.solver import AssignmentResult, solve
 
@@ -149,9 +148,11 @@ def _create_shocked_forecast(freight_shock_pct: float) -> Path:
         shocked_record["p10_rate"] = (
             float(record["p10_rate"]) * multiplier
         )
+
         shocked_record["p50_rate"] = (
             float(record["p50_rate"]) * multiplier
         )
+
         shocked_record["p90_rate"] = (
             float(record["p90_rate"]) * multiplier
         )
@@ -227,10 +228,25 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ── Fuel shock placeholder ────────────────────────────────────────────────
+    # ── Fuel Price What-If ────────────────────────────────────────────────────
     st.markdown("**⛽ Fuel Price Shock**")
+
+    vlsfo_price = st.slider(
+        label="VLSFO Bunker Fuel Price ($/MT)",
+        min_value=400.0,
+        max_value=1000.0,
+        value=float(VLSFO_PRICE_USD_MT),
+        step=25.0,
+        help=(
+            "What-if scenario applied to the VLSFO bunker fuel price.\n\n"
+            "Higher values increase vessel bunker costs.\n"
+            "Lower values decrease vessel bunker costs.\n\n"
+            "Default VLSFO price: USD 600/MT."
+        ),
+    )
+
     st.caption(
-        "Fuel-cost logic is being integrated by the solver team."
+        f"Fuel scenario: USD {vlsfo_price:,.0}/MT VLSFO"
     )
 
     st.markdown("---")
@@ -243,6 +259,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
+
     st.markdown("**Problem size**")
     st.markdown(f"- Vessels: `{len(VESSELS)}`")
     st.markdown(f"- Routes: `{len(ROUTES)}`")
@@ -277,6 +294,9 @@ if "last_lam" not in st.session_state:
 if "last_freight_shock" not in st.session_state:
     st.session_state.last_freight_shock: int = freight_shock
 
+if "last_vlsfo_price" not in st.session_state:
+    st.session_state.last_vlsfo_price: float = vlsfo_price
+
 
 # ── Detect control changes ─────────────────────────────────────────────────────
 lam_changed = (
@@ -289,9 +309,19 @@ freight_shock_changed = (
     and freight_shock != st.session_state.last_freight_shock
 )
 
+vlsfo_changed = (
+    st.session_state.result is not None
+    and abs(vlsfo_price - st.session_state.last_vlsfo_price) > 1e-6
+)
+
 
 # ── Run solver ─────────────────────────────────────────────────────────────────
-if run_clicked or lam_changed or freight_shock_changed:
+if (
+    run_clicked
+    or lam_changed
+    or freight_shock_changed
+    or vlsfo_changed
+):
     temp_forecast_path: Path | None = None
 
     with st.spinner("🔧 Running CBC solver…"):
@@ -314,11 +344,13 @@ if run_clicked or lam_changed or freight_shock_changed:
             result = solve(
                 lam=lam,
                 forecast_path=forecast_path,
+                vlsfo_price=vlsfo_price,
             )
 
             st.session_state.result = result
             st.session_state.last_lam = lam
             st.session_state.last_freight_shock = freight_shock
+            st.session_state.last_vlsfo_price = vlsfo_price
 
         except FileNotFoundError as exc:
             st.error(str(exc))
