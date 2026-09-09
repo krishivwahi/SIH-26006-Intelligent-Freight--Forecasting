@@ -23,6 +23,11 @@ from src.benchmarks.backtest import (
     RegimeBacktestResult,
     run_historical_regime_backtest,
 )
+from src.benchmarks.walk_forward import (
+    WalkForwardCycle,
+    WalkForwardSummary,
+    run_walk_forward_backtest,
+)
 
 __all__ = [
     "calculate_directional_accuracy",
@@ -35,4 +40,7 @@ __all__ = [
     "compare_all_policies",
     "RegimeBacktestResult",
     "run_historical_regime_backtest",
+    "WalkForwardCycle",
+    "WalkForwardSummary",
+    "run_walk_forward_backtest",
 ]

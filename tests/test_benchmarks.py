@@ -132,3 +132,33 @@ class TestHistoricalBacktestRegimes:
         assert agg["mean_directional_accuracy_pct"] >= 65.0
         assert agg["mean_profit_uplift_pct"] >= 10.0
         assert agg["mean_cost_reduction_usd"] > 100000.0
+
+
+class TestWalkForwardBacktest:
+    """Test suite for continuous walk-forward multi-cycle backtesting."""
+
+    def test_walk_forward_execution(self) -> None:
+        """Verify walk-forward executes across 12 cycles with valid financial totals."""
+        from src.benchmarks.walk_forward import run_walk_forward_backtest
+
+        summary = run_walk_forward_backtest(num_cycles=12)
+        assert summary.num_cycles == 12
+        assert len(summary.cycles) == 12
+        assert len(summary.cumulative_savings) == 12
+        assert summary.win_rate_pct >= 80.0
+        assert summary.total_savings_usd > 500000.0
+        assert summary.total_savings_inr_cr > 4.0
+        assert summary.mean_uplift_pct > 1.0
+
+        # Cumulative savings must be non-decreasing
+        for i in range(1, len(summary.cumulative_savings)):
+            assert summary.cumulative_savings[i] >= summary.cumulative_savings[i - 1]
+
+    def test_walk_forward_fallback(self) -> None:
+        """Verify fallback runs cleanly if path does not exist."""
+        from src.benchmarks.walk_forward import run_walk_forward_backtest
+
+        summary = run_walk_forward_backtest(data_path="non_existent_path.csv", num_cycles=6)
+        assert summary.num_cycles == 6
+        assert len(summary.cycles) == 6
+        assert summary.win_rate_pct == 100.0
