@@ -347,39 +347,66 @@ Subject to:
 
 ## 10. Current Progress Tracker
 
-> **Last updated:** 2026-09-02 (Day 0, pre-kickoff)
+> **Last updated:** 2026-09-13 (Phase 6 Freeze & Rehearsal)
 
-### Phase 1: Foundation and Floor Deliverable
-- [x] Forecaster-to-solver JSON contract locked (CONTRACT.md)
-- [x] Dummy data generator written (dummy_generator.py)
-- [x] Dummy forecast JSON artifact generated (data/interim/freight_forecast_30d.json)
-- [x] Core ML dependencies declared (requirements.txt)
-- [ ] Vessel-route parameter matrix frozen (Researcher 2)
-- [ ] Raw proxy data pulled for all six sources (Researcher 1: USDA bunker, FRED crude, FRED S&P 500, FRED DXY, NY Fed GSCPI, World Bank Pink Sheet)
-- [ ] Target variable approach decided: synthetic vs partial-real (Researcher 1)
-- [ ] Repo scaffolded with full directory structure (Researcher 3)
-- [ ] Minimal Dockerfile created (Researcher 3)
-- [ ] Feature engineering started (Tech Lead 1)
-- [ ] Trivial placeholder solver built (Tech Lead 2)
-- [ ] Bare-bones Streamlit UI shell wired (Tech Lead 2)
-- [ ] End-to-end pipeline runs on dummy data (all)
+### Phase 1: Foundation and Floor Deliverable — COMPLETE (100%)
+- [x] Forecaster-to-solver JSON contract locked (`CONTRACT.md`)
+- [x] Dummy data generator written (`dummy_generator.py`)
+- [x] Contract forecast JSON artifact generated (`data/interim/freight_forecast_30d.json`)
+- [x] Core ML & optimization dependencies declared (`requirements.txt`)
+- [x] Vessel-route parameter matrix frozen (5 vessels, 10 routes, laycans, speeds, fuel curves)
+- [x] Raw proxy data pulled for all 6 sources (USDA bunker, FRED crude, S&P 500, DXY, NY Fed GSCPI, World Bank Pink Sheet)
+- [x] Target variable approach confirmed: transparent calibrated synthetic proxy matching historical BDI ranges
+- [x] Repo scaffolded with modular 3-layer architecture
+- [x] Minimal Dockerfile created (`docker/Dockerfile`)
+- [x] Feature engineering pipeline operational (`src/data/feature_engineering.py`)
+- [x] PuLP CBC MILP assignment solver operational (`src/solver/solver.py`)
+- [x] End-to-end pipeline runs on contract JSON
 
-### Phase 2: Real Forecasts — COMPLETE
-- [x] AutoARIMA trained on freight rate series (Tech Lead 1)
-- [x] LightGBM quantile models trained with all features including AutoARIMA forecast (Tech Lead 1)
-- [x] SHAP integration: generate feature contribution values per prediction (Tech Lead 1)
-- [x] Real forecasts replace dummy JSON in pipeline (Tech Lead 1 + Tech Lead 2)
+### Phase 2: Real Forecasts & Machine Learning — COMPLETE (100%)
+- [x] AutoARIMA statistical baseline trained (`src/forecaster/baseline_arima.py`)
+- [x] LightGBM direct multi-step quantile models ($P_{10}, P_{50}, P_{90}$) trained (`src/forecaster/quantile_model.py`)
+- [x] AutoARIMA point forecast bridged as input feature to LightGBM (Paper 1 hybrid ensemble)
+- [x] SHAP TreeExplainer local attributions & global feature importance cached (`models/shap_summary.json`)
+- [x] Real forecast pipeline replaces placeholder JSON (`src/forecaster/write_forecast.py`)
+- [x] Temporal 80/20 train/test holdout split with out-of-sample directional accuracy & error metrics (`src/forecaster/train_pipeline.py`)
 
-### Phase 3: Risk Scoring and Interactive UI — NOT STARTED
-- [ ] SHAP waterfall chart panel added to Streamlit UI (Tech Lead 2 + Researcher 3)
+### Phase 3: Risk Scoring, Decision Advisor & Interactive UI — COMPLETE (100%)
+- [x] Downside-penalty risk scoring with dynamic $\lambda$ slider: $\text{Score} = P_{50} - \lambda(P_{50} - P_{10})$
+- [x] Interactive counterfactual sliders: Freight Rate Shock ($\pm 30\%$) and VLSFO Fuel Shock ($\$400-\$1,000/\text{MT}$)
+- [x] Real-time 3-card `Scenario Impact vs Baseline` delta grid
+- [x] **Executive Decision Advisor Panel** (`CHARTER NOW` / `RATES ARE FALLING` / `MARKET IS STABLE` guidance)
+- [x] Per-vessel ship decision cards with risk rating, laycan window, and worst-case cost avoidance
+- [x] 30-day Forecast Cones ($P_{10}/P_{50}/P_{90}$) fan charts with uncertainty envelopes
+- [x] Voyage Gantt schedule breakdown (sea transit vs port congestion)
+- [x] SHAP Waterfall and Global Macro Driver UI tabs
+- [x] VarunSetu design system adoption (navy/teal palette, glassmorphism, micro-animations, clean typography)
 
-### Phase 4: Backtest — NOT STARTED
-- [ ] Evaluate with MAE, RMSE, R², and directional accuracy (Tech Lead 1)
-- [ ] Compare: AutoARIMA alone vs LightGBM alone vs LightGBM+AutoARIMA (Tech Lead 1)
-- [ ] Segment results by high- and low-volatility regimes (Tech Lead 1)
-- [ ] Business metrics: profit uplift and downside risk reduction vs baselines (Tech Lead 1 + Tech Lead 2)
-### Phase 5: Hardening — NOT STARTED
-### Phase 6: Freeze and Rehearse — NOT STARTED
+### Phase 4: Backtesting & Commercial Benchmarks — COMPLETE (100%)
+- [x] Commercial baseline comparisons: Naive Spot Policy (Day 1 booking) & Greedy Heuristic (global spot minimum)
+- [x] Historical Regime Stress Testing (Normal 2019, 2021 Super-Spike, 2020 COVID Crash)
+- [x] Continuous 12-Cycle Walk-Forward Rolling Simulation with cumulative savings curve ($584K honest savings vs Naive)
+- [x] Cycle-by-cycle historical audit ledger with profit uplift and win rate tracking
+- [x] Out-of-sample directional accuracy (DA), MAE, and RMSE benchmarking
+
+### Phase 5: Alpha Audit, Hardening & Verification — COMPLETE (100%)
+- [x] **Full SIH Judge Alpha Audit completed — all 7 loopholes fixed**:
+  - Inverted walk-forward perspective to charterer/buyer cost accounting (`savings = naive - ai`)
+  - Removed artificial win-rate floor hack
+  - Eliminated lookahead data contamination (`bfill` replaced with `ffill`)
+  - Added temporal 80/20 train/test holdout validation
+  - Filtered infeasible Handysize (V-001) from forecast outputs
+  - Centralized currency exchange constant (`INR_PER_USD = 84.0` in `parameters.py`)
+  - Documented walk-forward assignment heuristics
+- [x] Full automated test suite: **205 passed in 12.86s** across 11 test modules
+- [x] Offline containerization specification verified (`docker/Dockerfile`)
+
+### Phase 6: Freeze, Rehearsal & Pitch Polish — IN PROGRESS
+- [x] Code frozen on `main` branch with clean git status
+- [x] UI verified in live browser session on `http://localhost:8501`
+- [x] SIH Pitch and Demo Playbook generated (`PITCH_AND_DEMO_PLAYBOOK.md`)
+- [ ] Pitch rehearsal and Q&A run-through with team orator
+
 
 ---
 

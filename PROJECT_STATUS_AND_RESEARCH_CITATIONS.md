@@ -16,12 +16,12 @@ The project follows an 18-day structured sprint plan designed for the Smart Indi
 
 | Phase | Description | Status | Scope Delivered / Remaining |
 |---|---|---|---|
-| **Phase 1 (Days 1–3)** | **Foundation & Floor Deliverable** | **100% COMPLETE** | • API JSON contract locked (`CONTRACT.md`)<br>• Standalone dummy generator (`dummy_generator.py`)<br>• PuLP CBC MILP optimizer engine (`src/solver/solver.py`)<br>• Risk-adjusted scoring (`src/solver/risk.py`)<br>• Interactive Streamlit UI (`src/ui/app.py`)<br>• Offline Dockerfile (`docker/Dockerfile`)<br>• Synchronized $t+1 \dots t+30$ horizon (Option A) |
-| **Phase 2 (Days 4–7)** | **Machine Learning & Real Data Ingestion** | **ADVANCED / IN PROGRESS (~75%)** | • LightGBM Multi-Step Quantile Regressor (`src/forecaster/quantile_model.py`)<br>• Contract Forecast Writer (`src/forecaster/write_forecast.py`)<br>• Feature Engineering Pipeline (`src/data/feature_engineering.py`)<br>• Seasonal Domain Calendar (`src/data/seasonal_calendar.py`)<br>• Synthetic Generator (`src/data/synthetic_data.py`)<br>• **6 Real Proxy Datasets Ingested** in `data/raw/`<br>• Ingestion & Cleaning Module (`src/data/load_real_data.py`)<br>• Directional Accuracy Metric added<br>*Pending:* Saving final trained `.joblib` model weights & SHAP TreeExplainer caching |
-| **Phase 3 (Days 8–10)** | **Risk Scoring & Counterfactual UI** | **FOUNDATIONS COMPLETE (~70%)** | • Downside-penalty risk scoring ($\lambda$ tuning) fully operational<br>• Real-time Streamlit sliders for Freight Rate Shock and Fuel Price Shock active<br>*Pending:* SHAP waterfall visualization in UI |
-| **Phase 4 (Days 11–13)** | **Backtesting & Profit Uplift Benchmarking** | **DESIGNED / READY FOR EXECUTION** | • Benchmark metrics defined: MAE, RMSE, $R^2$, Directional Accuracy, Profit Uplift vs. Naive and Greedy baselines |
-| **Phase 5 (Days 14–16)** | **Hardening & Offline Containerization** | **SCAFFOLDED** | • Dockerfile and `.dockerignore` configured for zero-internet execution |
-| **Phase 6 (Days 17–18)** | **Freeze, Rehearsal & Pitch Polish** | **NOT STARTED** | • Presentation deck & live demo choreography |
+| **Phase 1 (Days 1–3)** | **Foundation & Floor Deliverable** | **100% COMPLETE** | • API JSON contract locked (`CONTRACT.md`)<br>• Standalone dummy generator (`dummy_generator.py`)<br>• PuLP CBC MILP optimizer engine (`src/solver/solver.py`)<br>• Risk-adjusted scoring (`src/solver/risk.py`)<br>• Interactive Streamlit UI (`src/ui/app.py`)<br>• Offline Dockerfile (`docker/Dockerfile`)<br>• Synchronized $t+1 \dots t+30$ horizon |
+| **Phase 2 (Days 4–7)** | **Machine Learning & Real Data Ingestion** | **100% COMPLETE** | • LightGBM Multi-Step Direct Quantile Regressor (`src/forecaster/quantile_model.py`)<br>• AutoARIMA statistical baseline signal (`src/forecaster/baseline_arima.py`)<br>• Contract Forecast Writer (`src/forecaster/write_forecast.py`)<br>• Temporal 80/20 train/test holdout split with out-of-sample directional accuracy & error metrics (`src/forecaster/train_pipeline.py`)<br>• Feature Engineering Pipeline without lookahead leakage (`src/data/feature_engineering.py`)<br>• Seasonal Domain Calendar (`src/data/seasonal_calendar.py`)<br>• **6 Real Proxy Datasets Ingested** in `data/raw/`<br>• SHAP TreeExplainer local and global attributions cached (`models/shap_summary.json`) |
+| **Phase 3 (Days 8–10)** | **Risk Scoring & Counterfactual UI** | **100% COMPLETE** | • Downside-penalty risk scoring ($\lambda$ tuning) fully operational<br>• Real-time Streamlit sliders for Freight Rate Shock ($\pm 30\%$) and Fuel Price Shock ($400–$1,000/MT)<br>• Real-time 3-card `Scenario Impact vs Baseline` delta grid<br>• **Decision Advisor Panel** with plain-English chartering recommendations and per-vessel guidance cards<br>• Voyage Gantt schedule and 30-day probabilistic Forecast Cones ($P_{10}/P_{50}/P_{90}$)<br>• Full SHAP Waterfall and Global Macro Driver UI tabs |
+| **Phase 4 (Days 11–13)** | **Backtesting & Commercial Benchmarking** | **100% COMPLETE** | • Commercial baselines: Naive Spot Policy (Day 1 booking) & Greedy Heuristic (global spot minimum)<br>• 3 Historical Regime Stress Tests: Normal (2019), 2021 Super-Spike, 2020 COVID Crash (`src/benchmarks/regimes.py`)<br>• Continuous 12-Cycle Walk-Forward Rolling Simulation (`src/benchmarks/walk_forward.py`) showing **$584K honest cost savings** and 100% win-rate without artificial floors |
+| **Phase 5 (Days 14–16)** | **Hardening & Verification** | **100% COMPLETE** | • All 7 SIH Judge audit loopholes resolved (charterer cost accounting, no artificial floors, zero lookahead leakage, out-of-sample holdout validation, V-001 feasibility, centralized INR rate)<br>• Dockerfile and `.dockerignore` configured for zero-internet execution<br>• **Full test suite passes: 205 passed in 12.86s** |
+| **Phase 6 (Days 17–18)** | **Freeze, Rehearsal & Pitch Polish** | **IN PROGRESS** | • Code frozen on `main`<br>• Pitch & Demo Playbook created (`PITCH_AND_DEMO_PLAYBOOK.md`)<br>• 2-minute live demo choreography & Q&A defense rehearsal |
 
 ---
 
@@ -29,14 +29,15 @@ The project follows an 18-day structured sprint plan designed for the Smart Indi
 
 The codebase is organized into a modular three-layer architecture:
 1. **Layer 1: Forecaster & Data Pipeline (`src/data/`, `src/forecaster/`)**
-2. **Layer 2: Deterministic Optimization Solver (`src/solver/`, `src/risk/`)**
-3. **Layer 3: Interactive Counterfactual UI (`src/ui/`)**
+2. **Layer 2: Optimization Solver & Commercial Benchmarking (`src/solver/`, `src/benchmarks/`)**
+3. **Layer 3: Interactive Decision UI (`src/ui/`)**
 
 ```
 SIH-26006-Intelligent-Freight--Forecasting/
 ├── AGENT_CONTEXT.md              # Living master project blueprint
 ├── BETA_ROADMAP.md               # 20-day roadmap for Beta phase
 ├── CONTRACT.md                   # Locked JSON API contract
+├── PITCH_AND_DEMO_PLAYBOOK.md    # SIH Judge pitch, demo & defense playbook
 ├── docker/
 │   └── Dockerfile                # Offline container specification
 ├── dummy_generator.py            # Calibrated contract JSON generator
@@ -52,15 +53,22 @@ SIH-26006-Intelligent-Freight--Forecasting/
 │   │   ├── seasonal_calendar.py  # Monsoon, harvest, CNY domain pressure
 │   │   └── synthetic_data.py     # Calibrated synthetic market generators
 │   ├── forecaster/
+│   │   ├── baseline_arima.py     # Statistical AutoARIMA baseline signal
 │   │   ├── quantile_model.py     # LightGBM multi-step direct quantile engine
+│   │   ├── explainability.py     # SHAP TreeExplainer feature attributions
+│   │   ├── train_pipeline.py     # 80/20 train/test split & training pipeline
 │   │   └── write_forecast.py     # Multiplier expansion & contract writer
 │   ├── solver/
 │   │   ├── parameters.py         # 5 vessels, 10 routes, laycans, capacities
 │   │   ├── risk.py               # Downside-penalty risk scoring formula
 │   │   └── solver.py             # PuLP CBC MILP assignment optimizer
+│   ├── benchmarks/
+│   │   ├── baselines.py          # Naive Spot & Greedy heuristic policies
+│   │   ├── regimes.py            # Historical regime stress-testing (3 regimes)
+│   │   └── walk_forward.py       # 12-cycle continuous rolling simulation
 │   └── ui/
-│       └── app.py                # Streamlit decision dashboard & simulator
-└── tests/                        # 8 test suites (181 passed tests)
+│       └── app.py                # VarunSetu decision dashboard & simulator
+└── tests/                        # 11 test suites (205 passed tests)
 ```
 
 ### 2.1 Detailed Module & Function Reference
