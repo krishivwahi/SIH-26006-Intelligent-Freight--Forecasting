@@ -421,7 +421,7 @@ freight_shock_changed = st.session_state.result is not None and freight_shock !=
 
 
 # ── Run solver ─────────────────────────────────────────────────────────────────
-if run_clicked or lam_changed or vlsfo_changed or freight_shock_changed or st.session_state.result is None:
+if run_clicked or lam_changed or vlsfo_changed or freight_shock_changed:
     with st.spinner("🔧 Running CBC solver with live market parameters…"):
         try:
             freight_mult = 1.0 + (freight_shock / 100.0)
@@ -734,8 +734,10 @@ else:
                 **_LAYOUT, barmode="stack",
                 xaxis_title="Total Voyage Duration (Days from Loading Laycan)",
                 yaxis=dict(autorange="reversed", **_GRID), xaxis=_GRID,
-                height=320, margin=dict(t=20, b=40, l=150),
+                height=max(360, 96 * len(assignments) + 120),
+                margin=dict(t=56, b=62, l=190, r=24),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                bargap=0.28,
             )
             st.plotly_chart(gantt_fig, use_container_width=True)
 
@@ -925,14 +927,22 @@ else:
                 text_vals.append(f"{pred_val:.2f}")
                 measures.append("total")
                 fig_shap = go.Figure(go.Waterfall(
-                    name="SHAP", orientation="v", measure=measures,
-                    x=x_labels, y=y_vals, text=text_vals, textposition="outside",
+                    name="SHAP", orientation="h", measure=measures,
+                    y=x_labels, x=y_vals, text=text_vals, textposition="outside",
                     connector={"line": {"color": "rgba(255,255,255,0.15)", "dash": "dot"}},
                     decreasing={"marker": {"color": "#f85149"}},
                     increasing={"marker": {"color": "#49c8bc"}},
                     totals={"marker": {"color": "#67ddd2"}},
                 ))
-                fig_shap.update_layout(**_LAYOUT, yaxis_title=f"Rate Contribution ({unit_sym})", xaxis=_GRID, yaxis=_GRID, height=420, margin=dict(t=30, b=80))
+                fig_shap.update_layout(
+                    **_LAYOUT,
+                    xaxis_title=f"Rate Contribution ({unit_sym})",
+                    xaxis=_GRID,
+                    yaxis=dict(autorange="reversed", **_GRID),
+                    height=max(460, 42 * len(x_labels) + 120),
+                    margin=dict(t=28, b=44, l=270, r=72),
+                    showlegend=False,
+                )
                 st.plotly_chart(fig_shap, use_container_width=True)
                 pos_drivers = [c for c in raw_contribs if c["shap_value"] > 0]
                 neg_drivers = [c for c in raw_contribs if c["shap_value"] < 0]
