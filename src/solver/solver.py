@@ -56,12 +56,12 @@ from src.solver.parameters import (
 )
 from src.solver.risk import compute_scores_bulk
 
-# ── Constants ─────────────────────────────────────────────────────────────────
+#  Constants 
 FORECAST_JSON_PATH = Path("data/interim/freight_forecast_30d.json")
 HORIZON_DAYS = 30
 
 
-# ── Result dataclass ───────────────────────────────────────────────────────────
+#  Result dataclass 
 @dataclass
 class AssignmentResult:
     """Structured solver output consumed by the Streamlit UI."""
@@ -89,7 +89,7 @@ class AssignmentResult:
     freight_multiplier_used: float = 1.0
 
 
-# ── Internal helpers ───────────────────────────────────────────────────────────
+#  Internal helpers 
 
 def _load_forecast(path: Path) -> list[dict]:
     """Load and validate the contract JSON.
@@ -181,7 +181,7 @@ def _is_min_cargo_feasible(vessel: dict, route: dict) -> bool:
     return route["cargo_requirement_dwt"] >= vessel.get("min_cargo_dwt", 0)
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
+#  Public API 
 
 def solve(
     lam: float = LAMBDA,
@@ -205,7 +205,7 @@ def solve(
     if base_date is None:
         base_date = date.today()
 
-    # ── 1. Load forecast and compute risk-adjusted scores ──────────────────
+    #  1. Load forecast and compute risk-adjusted scores 
     records = _load_forecast(forecast_path)
     if abs(freight_multiplier - 1.0) > 1e-4:
         scaled_records = []
@@ -227,7 +227,7 @@ def solve(
 
     date_strings = _build_date_index(base_date, HORIZON_DAYS)
 
-    # ── 2. Build feasible (vessel, route, day_offset) triples ─────────────────
+    #  2. Build feasible (vessel, route, day_offset) triples 
     # A triple is feasible if:
     #   a) LAYCAN_MATRIX marks (vessel, route) as feasible (DWT >= cargo)
     #   b) the day_offset falls within THIS vessel's specific laycan window
@@ -274,7 +274,7 @@ def solve(
         net_profit = freight_revenue - voyage_cost
         net_profit_lookup[key] = net_profit
 
-    # ── 3. Build PuLP problem ───────────────────────────────────────────────────
+    #  3. Build PuLP problem 
     prob = pulp.LpProblem("VesselRouteAssignment", pulp.LpMaximize)
 
     # Binary variable for each feasible triple
@@ -283,7 +283,7 @@ def solve(
         var_name = "x_{}_{}_{}".format(*key).replace("-", "_")
         x[key] = pulp.LpVariable(var_name, cat="Binary")
 
-    # ── Big-M: explicitly forbid all capacity-infeasible (vessel, route) triples
+    #  Big-M: explicitly forbid all capacity-infeasible (vessel, route) triples
     # The xlsx instructs: "FORBID (set assignment upper bound to 0)" for V-001.
     # We do this by adding a dedicated variable with ub=0 for every (V-001, route,
     # day) triple that is in the horizon but was excluded from the feasible list.
@@ -329,7 +329,7 @@ def solve(
         if route_vars:
             prob += pulp.lpSum(route_vars) <= 1, f"OneVesselPerRoute_{rid}"
 
-    # ── 4. Solve ───────────────────────────────────────────────────────────
+    #  4. Solve 
     t0 = time.perf_counter()
     # msg=0 suppresses CBC stdout; timeLimit guards against runaway solves
     solver = pulp.PULP_CBC_CMD(msg=0, timeLimit=30)
@@ -351,7 +351,7 @@ def solve(
     #       status_str = "Time-limited (best found)"
     # Not triggered at 1,200 variables, but wired here for Beta readiness.
 
-    # ── 5. Extract assignments ─────────────────────────────────────────────
+    #  5. Extract assignments 
     assignments: list[dict[str, Any]] = []
     if prob.status == pulp.LpStatusOptimal:
         for key, var in x.items():

@@ -20,7 +20,7 @@ import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-# ── Path bootstrap ─────────────────────────────────────────────────────────────
+#  Path bootstrap 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -72,7 +72,7 @@ FEATURE_NAME_MAP: dict[str, str] = {
     "month_cos":             "Quarterly Seasonal Harmonic",
 }
 
-# ── Freight shock helper ───────────────────────────────────────────────────────
+#  Freight shock helper 
 def _create_shocked_forecast(freight_shock_pct: float) -> Path:
     source_path = ROOT / "data" / "interim" / "freight_forecast_30d.json"
     if not source_path.exists():
@@ -99,7 +99,7 @@ def _create_shocked_forecast(freight_shock_pct: float) -> Path:
     return Path(tmp.name)
 
 
-# ── Page config ────────────────────────────────────────────────────────────────
+#  Page config 
 st.set_page_config(
     page_title="VarunSetu",
     page_icon="VS",
@@ -108,7 +108,7 @@ st.set_page_config(
 )
 
 
-# ── Custom CSS (Luvish VarunSetu design system) ────────────────────────────────
+#  Custom CSS (Luvish VarunSetu design system) 
 st.markdown(
     """
     <style>
@@ -308,7 +308,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+#  Sidebar 
 with st.sidebar:
     st.markdown(
         """
@@ -336,7 +336,7 @@ with st.sidebar:
     st.markdown("---")
 
     freight_shock = st.slider(
-        label="📉 Freight Rate Shock",
+        label="Freight Rate Shock",
         min_value=-30, max_value=30, value=0, step=5, format="%d%%",
         help=(
             "What-if scenario applied to forecast freight rates.\n\n"
@@ -353,7 +353,7 @@ with st.sidebar:
     st.markdown("---")
 
     vlsfo_price = st.slider(
-        label="⛽ VLSFO Bunker Fuel Price ($/MT)",
+        label="VLSFO Bunker Fuel Price ($/MT)",
         min_value=400.0, max_value=1000.0, value=float(VLSFO_PRICE_USD_MT), step=25.0,
         help="Simulate vessel voyage cost sensitivity to bunker fuel fluctuations.\n\nDefault: $600/MT.",
     )
@@ -361,7 +361,7 @@ with st.sidebar:
     st.markdown("---")
 
     run_clicked = st.button(
-        "▶ Run Solver", type="primary", use_container_width=True,
+        "Run Solver", type="primary", use_container_width=True,
         help="Invoke PuLP CBC solver and update the assignment table.",
     )
 
@@ -377,7 +377,7 @@ with st.sidebar:
     st.caption("Explainability: SHAP TreeExplainer")
 
 
-# ── Main header ────────────────────────────────────────────────────────────────
+#  Main header 
 st.markdown(
     """
     <div class="vs-hero">
@@ -401,7 +401,7 @@ st.markdown(
 st.markdown("")
 
 
-# ── Session state ──────────────────────────────────────────────────────────────
+#  Session state 
 if "base_date" not in st.session_state:
     st.session_state.base_date = date.today()
 if "result" not in st.session_state:
@@ -420,9 +420,9 @@ vlsfo_changed = st.session_state.result is not None and abs(vlsfo_price - st.ses
 freight_shock_changed = st.session_state.result is not None and freight_shock != st.session_state.last_freight_shock
 
 
-# ── Run solver ─────────────────────────────────────────────────────────────────
+#  Run solver 
 if run_clicked or lam_changed or vlsfo_changed or freight_shock_changed:
-    with st.spinner("🔧 Running CBC solver with live market parameters…"):
+    with st.spinner("Running CBC solver with live market parameters…"):
         try:
             freight_mult = 1.0 + (freight_shock / 100.0)
             result = solve(
@@ -451,15 +451,15 @@ if run_clicked or lam_changed or vlsfo_changed or freight_shock_changed:
             st.stop()
 
 
-# ── Results display ────────────────────────────────────────────────────────────
+#  Results display 
 result: AssignmentResult | None = st.session_state.result
 
 if result is None:
-    st.info("👈 Open the Scenario Controls and click **▶ Run Solver** to compute optimal fleet assignments.")
+    st.info("Open the Scenario Controls and click **Run Solver** to compute optimal fleet assignments.")
     st.markdown(
-        "<div class='data-label'>⚠️ <strong>Ready to Solve:</strong> "
+        "<div class='data-label'><strong>Ready to Solve:</strong> "
         "Calibrated LightGBM Quantile Forecasts (P₁₀/P₅₀/P₉₀) loaded with SHAP tree attributions. "
-        "Click <strong>▶ Run Solver</strong> to compute optimal laycan vessel schedules.</div>",
+        "Click <strong>Run Solver</strong> to compute optimal laycan vessel schedules.</div>",
         unsafe_allow_html=True,
     )
 else:
@@ -530,8 +530,8 @@ else:
 
     st.markdown("---")
 
-    # ── 🚦 DECISION ADVISOR (Phase 3 — restyled) ──────────────────────────────
-    st.markdown('<div class="vs-section"><span class="section-kicker">01</span>🚦 What Should We Do Right Now?</div>', unsafe_allow_html=True)
+    #   DECISION ADVISOR (Phase 3 — restyled) 
+    st.markdown('<div class="vs-section"><span class="section-kicker">01</span>What Should We Do Right Now?</div>', unsafe_allow_html=True)
     st.markdown(
         "The AI has analysed freight rate forecasts, vessel availability, fuel costs, and port delays. "
         "Here is its decision in plain language:"
@@ -563,7 +563,7 @@ else:
     if assignments and _rate_trend == "rising":
         st.markdown(
             f"<div class='advisor-banner-rise'>"
-            f"<h2>✅ CHARTER NOW — Rates Are Rising</h2>"
+            f"<h2>CHARTER NOW — Rates Are Rising</h2>"
             f"<p>Freight rates are forecasted to go <strong>up by {abs(_trend_pct):.1f}%</strong> over the next 30 days. "
             f"Waiting will cost more. The AI has already picked the best ships and loading dates. "
             f"<strong>Lock them in now.</strong></p></div>",
@@ -572,7 +572,7 @@ else:
     elif assignments and _rate_trend == "falling":
         st.markdown(
             f"<div class='advisor-banner-fall'>"
-            f"<h2>⚠️ RATES ARE FALLING — Charter on AI-Recommended Date</h2>"
+            f"<h2>RATES ARE FALLING — Charter on AI-Recommended Date</h2>"
             f"<p>Freight rates are forecasted to <strong>drop by {abs(_trend_pct):.1f}%</strong>. "
             f"The AI has found the cheapest available loading window within your contractual deadline. "
             f"<strong>Charter on the AI-recommended date — not today.</strong></p></div>",
@@ -581,7 +581,7 @@ else:
     elif assignments:
         st.markdown(
             "<div class='advisor-banner-stable'>"
-            "<h2>✅ CHARTER NOW — Market Is Stable</h2>"
+            "<h2>CHARTER NOW — Market Is Stable</h2>"
             "<p>The freight market is <strong>stable</strong>. The AI has found the optimal loading dates "
             "to minimise your total cost. <strong>Proceed with the assignments below.</strong></p></div>",
             unsafe_allow_html=True,
@@ -589,7 +589,7 @@ else:
 
     # Per-vessel ship cards
     if assignments:
-        st.markdown("#### 📋 Decision for Each Ship")
+        st.markdown("#### Decision for Each Ship")
         _vessel_names = {v["vessel_id"]: v.get("vessel_name", v["vessel_id"]) for v in VESSELS}
         _cols = st.columns(min(len(assignments), 2))
         for _idx, _asgn in enumerate(assignments):
@@ -607,29 +607,29 @@ else:
             _wait    = _asgn.get("port_waiting_days", 0)
             _spread  = _p90 - _p10
             _risk_label = (
-                "🟢 Low Risk — Rate is stable and predictable" if _spread < 1.0
-                else "🟡 Medium Risk — Some rate uncertainty, manageable"
+                "Low Risk — Rate is stable and predictable" if _spread < 1.0
+                else "Medium Risk — Some rate uncertainty, manageable"
                 if _spread < 3.0
-                else "🔴 High Risk — Rates volatile; chartering now locks in certainty"
+                else "High Risk — Rates volatile; chartering now locks in certainty"
             )
             _saving_vs_worst = (_p90 - _p50) * _cargo
             _delivery_days = int(_transit + _wait)
             with _cols[_idx % 2]:
                 st.markdown(
                     f"<div class='ship-card'>"
-                    f"<h3>✅ CHARTER THIS SHIP</h3>"
+                    f"<h3>CHARTER THIS SHIP</h3>"
                     f"<h4>{_vname} <span style='color:var(--teal)'>({_vid})</span></h4>"
                     f"<table class='ship-table'>"
-                    f"<tr><td>🚢 Picking up at</td><td>{_origin}</td></tr>"
-                    f"<tr><td>🏭 Delivering to</td><td>{_dest} (Indian port)</td></tr>"
-                    f"<tr><td>📅 Load on</td><td><strong>{_date}</strong> — AI's optimal day in window</td></tr>"
-                    f"<tr><td>⚓ Cargo</td><td><strong>{_cargo:,} tonnes</strong> coking coal</td></tr>"
-                    f"<tr><td>⏱️ Journey</td><td><strong>{_delivery_days} days</strong> (sea + port)</td></tr>"
-                    f"<tr><td>💰 Freight rate</td><td><strong>${_p50:.2f}/tonne</strong></td></tr>"
-                    f"<tr><td>💸 Voyage cost</td><td>${_cost:,.0f} (fuel + port fees)</td></tr>"
+                    f"<tr><td>Picking up at</td><td>{_origin}</td></tr>"
+                    f"<tr><td>Delivering to</td><td>{_dest} (Indian port)</td></tr>"
+                    f"<tr><td>Load on</td><td><strong>{_date}</strong> — AI's optimal day in window</td></tr>"
+                    f"<tr><td>Cargo</td><td><strong>{_cargo:,} tonnes</strong> coking coal</td></tr>"
+                    f"<tr><td>Journey</td><td><strong>{_delivery_days} days</strong> (sea + port)</td></tr>"
+                    f"<tr><td>Freight rate</td><td><strong>${_p50:.2f}/tonne</strong></td></tr>"
+                    f"<tr><td>Voyage cost</td><td>${_cost:,.0f} (fuel + port fees)</td></tr>"
                     f"</table>"
                     f"<div class='ship-risk'>{_risk_label}</div>"
-                    f"<div class='ship-saving'>💡 Optimal timing avoids ${_saving_vs_worst:,.0f} in worst-case freight costs</div>"
+                    f"<div class='ship-saving'>Optimal timing avoids ${_saving_vs_worst:,.0f} in worst-case freight costs</div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
@@ -639,7 +639,7 @@ else:
     if not assignments:
         st.warning("Solver returned no assignments. Check laycan windows or capacity constraints.")
     else:
-        # ── Tabs: four Phase 3 & 4 panels ─────────────────────────────────────
+        #  Tabs: four Phase 3 & 4 panels 
         st.markdown('<div class="vs-section"><span class="section-kicker">02</span>Recommended Vessel–Route Assignments</div>', unsafe_allow_html=True)
 
         df = pd.DataFrame(assignments)
@@ -679,17 +679,17 @@ else:
         st.markdown(
             "<div style='background:rgba(13,54,67,0.55);border-left:4px solid rgba(240,136,62,0.7);"
             "padding:10px 16px;border-radius:10px;margin:14px 0 20px;font-size:0.87rem;color:#c8d8dc;'>"
-            "🚢 <strong>Fleet Reserve:</strong> <code>V-001 (MV TS INDEX)</code> Handysize (38,854 DWT) is "
+            "<strong>Fleet Reserve:</strong> <code>V-001 (MV TS INDEX)</code> Handysize (38,854 DWT) is "
             "<strong>IDLE in reserve</strong>. All procurement routes require ≥40,000 MT cargo, "
             "exceeding V-001's deadweight floor.</div>",
             unsafe_allow_html=True,
         )
 
         tab_scores, tab_gantt, tab_cones, tab_benchmark = st.tabs([
-            "📊 Scores & Allocation",
-            "📅 Voyage Gantt",
-            "📈 Forecast Cones",
-            "🏆 Benchmark & Profit Uplift",
+            "Scores & Allocation",
+            "Voyage Gantt",
+            "Forecast Cones",
+            "Benchmark & Profit Uplift",
         ])
 
         _FONT = dict(family="Helvetica, Arial, sans-serif", color="#dcebee")
@@ -772,7 +772,7 @@ else:
                     if assigned_for_route:
                         cone_fig.add_vline(
                             x=assigned_for_route["date"], line_width=2, line_dash="dash", line_color="#f1a15a",
-                            annotation_text=f"⚓ Assigned: {assigned_for_route['vessel_id']} ({assigned_for_route['date']})",
+                            annotation_text=f" Assigned: {assigned_for_route['vessel_id']} ({assigned_for_route['date']})",
                             annotation_position="top right", annotation_font=dict(color="#f1a15a", size=11),
                         )
                     cone_fig.update_layout(
@@ -786,7 +786,7 @@ else:
                 st.info("Forecast data not found. Run training pipeline to generate.")
 
         with tab_benchmark:
-            st.markdown('<div class="vs-section"><span class="section-kicker">03</span>🏆 Benchmark — AI Engine vs Commercial Policies</div>', unsafe_allow_html=True)
+            st.markdown('<div class="vs-section"><span class="section-kicker">03</span>Benchmark — AI Engine vs Commercial Policies</div>', unsafe_allow_html=True)
             st.markdown(
                 "Quantifying real-world savings and net profit uplift against **Naive Spot Chartering** "
                 "and **Greedy Rate-Picking**. Grounded in *Wang et al.* stochastic fleet scheduling (12.7% cost reduction benchmark)."
@@ -840,7 +840,7 @@ else:
 
             # Walk-forward simulation
             st.markdown("---")
-            st.markdown('<div class="vs-section"><span class="section-kicker">03d</span>🔄 Continuous Walk-Forward Rolling Simulation (12 Cycles)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="vs-section"><span class="section-kicker">03d</span>Continuous Walk-Forward Rolling Simulation (12 Cycles)</div>', unsafe_allow_html=True)
             st.markdown(
                 "Simulating 12 consecutive 30-day procurement cycles across 2 years of historical market data "
                 "(Sept 2024 – Sept 2026). AI selects optimal laycans without future lookahead; "
@@ -867,13 +867,13 @@ else:
                                  xaxis=_GRID, yaxis=_GRID, height=340, margin=dict(t=40, b=40))
             st.plotly_chart(fig_wf, use_container_width=True)
 
-            with st.expander("🔎 Cycle-by-Cycle Historical Audit Ledger", expanded=False):
-                ledger_rows = [{"Cycle": f"Cycle {c.cycle_id:02d}", "Window": f"{c.start_date} → {c.end_date}", "AI Total Cost ($)": c.ai_net_profit, "Naive Total Cost ($)": c.naive_net_profit, "Net Savings ($)": c.cost_savings_usd, "Uplift (%)": f"+{c.profit_uplift_pct:.1f}%", "Outcome": "✔ AI Won" if c.win else "✘ Spot Better"} for c in wf_summary.cycles]
+            with st.expander("Cycle-by-Cycle Historical Audit Ledger", expanded=False):
+                ledger_rows = [{"Cycle": f"Cycle {c.cycle_id:02d}", "Window": f"{c.start_date} → {c.end_date}", "AI Total Cost ($)": c.ai_net_profit, "Naive Total Cost ($)": c.naive_net_profit, "Net Savings ($)": c.cost_savings_usd, "Uplift (%)": f"+{c.profit_uplift_pct:.1f}%", "Outcome": "AI Won" if c.win else "Spot Better"} for c in wf_summary.cycles]
                 st.dataframe(pd.DataFrame(ledger_rows), use_container_width=True, hide_index=True, column_config={"AI Total Cost ($)": st.column_config.NumberColumn(format="$%.2f"), "Naive Total Cost ($)": st.column_config.NumberColumn(format="$%.2f"), "Net Savings ($)": st.column_config.NumberColumn(format="$%.2f")})
 
-    # ── SHAP Explainability ────────────────────────────────────────────────────
+    #  SHAP Explainability 
     st.markdown("---")
-    st.markdown('<div class="vs-section"><span class="section-kicker">04</span>🔍 Model Explainability &amp; Macro Drivers (SHAP)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="vs-section"><span class="section-kicker">04</span>Model Explainability &amp; Macro Drivers (SHAP)</div>', unsafe_allow_html=True)
     st.markdown(
         "Transparency for executive chartering decisions (Lundberg & Lee TreeExplainer). "
         "Inspect how macro indicators, commodity stress, and seasonal cycles drive rate forecasts."
@@ -884,7 +884,7 @@ else:
         with open(shap_path, "r", encoding="utf-8") as f:
             shap_data = json.load(f)
 
-        tab_waterfall, tab_global = st.tabs(["📊 Prediction Attribution (Waterfall)", "🌐 Global Macro Drivers"])
+        tab_waterfall, tab_global = st.tabs(["Prediction Attribution (Waterfall)", "Global Macro Drivers"])
 
         with tab_waterfall:
             local = shap_data.get("local_attribution", {})
@@ -949,11 +949,11 @@ else:
                 if pos_drivers:
                     top_pos = pos_drivers[0]
                     clean_pos = FEATURE_NAME_MAP.get(top_pos["feature"], top_pos["feature"])
-                    st.markdown(f"📈 **Primary Bullish Driver:** `{clean_pos}` pushed rate up by **+{top_pos['shap_value'] * scale:.2f} {unit_sym}**")
+                    st.markdown(f"**Primary Bullish Driver:** `{clean_pos}` pushed rate up by **+{top_pos['shap_value'] * scale:.2f} {unit_sym}**")
                 if neg_drivers:
                     top_neg = neg_drivers[0]
                     clean_neg = FEATURE_NAME_MAP.get(top_neg["feature"], top_neg["feature"])
-                    st.markdown(f"📉 **Primary Bearish Pressure:** `{clean_neg}` pushed rate down by **{top_neg['shap_value'] * scale:.2f} {unit_sym}**")
+                    st.markdown(f"**Primary Bearish Pressure:** `{clean_neg}` pushed rate down by **{top_neg['shap_value'] * scale:.2f} {unit_sym}**")
 
         with tab_global:
             global_imp = shap_data.get("global_importance", [])
@@ -965,11 +965,11 @@ else:
                 st.plotly_chart(fig_gi, use_container_width=True)
                 st.markdown("**Key Takeaway:** Short-term freight momentum (7d/14d MA) alongside **NY Fed GSCPI** and **Iron Ore/Coal volatility** are the primary drivers of spot market equilibrium.")
     else:
-        st.info("ℹ️ SHAP artifact not found. Run `python -m src.forecaster.train_pipeline` to generate it.")
+        st.info("SHAP artifact not found. Run `python -m src.forecaster.train_pipeline` to generate it.")
 
     # Data provenance footer
     st.markdown(
-        "<div class='data-label'>✅ <strong>Production Pipeline Active.</strong> "
+        "<div class='data-label'><strong>Production Pipeline Active.</strong> "
         "Freight forecasts: calibrated <strong>LightGBM Direct Multi-Step Quantile Regressors (P10/P50/P90)</strong> "
         "with AutoARIMA baseline signal and <strong>SHAP TreeExplainer</strong> attribution. "
         "Optimised via PuLP CBC MILP with dynamic bunker fuel cost and port delay modelling.</div>",

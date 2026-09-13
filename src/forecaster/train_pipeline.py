@@ -62,7 +62,7 @@ def run_training_pipeline(
     """
     os.makedirs(model_dir, exist_ok=True)
 
-    # ── 1. Ensure processed dataset exists ──────────────────────────────────
+    #  1. Ensure processed dataset exists 
     if data_path is None or not os.path.exists(data_path):
         data_path = DEFAULT_DATA_PATH
         if not os.path.exists(data_path):
@@ -72,10 +72,10 @@ def run_training_pipeline(
     df_raw = pd.read_csv(data_path)
     df_raw["date"] = pd.to_datetime(df_raw["date"])
 
-    # ── 2. Build base feature matrix (calendar, seasonal, lags, rolling, momentum) ──
+    #  2. Build base feature matrix (calendar, seasonal, lags, rolling, momentum) 
     X, y = build_feature_matrix(df_raw, target_column="freight_rate", date_column="date")
 
-    # ── 3. Temporal 80/20 train / test split ────────────────────────────────
+    #  3. Temporal 80/20 train / test split 
     # Splitting by time (not random) to avoid lookahead leakage.
     # The model trains on the first 80% of the dataset and is evaluated on
     # the final 20% it has never seen — giving out-of-sample (OOS) metrics.
@@ -84,7 +84,7 @@ def run_training_pipeline(
     y_train, y_test = y.iloc[:split_idx].copy(), y.iloc[split_idx:].copy()
     print(f"Train: {len(X_train)} rows | Test (OOS): {len(X_test)} rows")
 
-    # ── 4. Fit AutoARIMA baseline on TRAIN only, inject as bridge feature ───
+    #  4. Fit AutoARIMA baseline on TRAIN only, inject as bridge feature 
     print("Fitting AutoARIMA baseline on train split...")
     arima_model = AutoARIMABaseline(max_p=2, max_q=2, max_d=1, random_state=random_state)
     arima_model.fit(y_train)
@@ -104,7 +104,7 @@ def run_training_pipeline(
     arima_path = os.path.join(model_dir, "arima_baseline.joblib")
     arima_model.save(arima_path)
 
-    # ── 5. Train LightGBM Multi-Step Quantile Regressors on TRAIN only ──────
+    #  5. Train LightGBM Multi-Step Quantile Regressors on TRAIN only 
     print(f"Training QuantileForecaster on {len(X_train)} samples with {X_train.shape[1]} features...")
     forecaster = QuantileForecaster(
         horizon=30,
@@ -117,7 +117,7 @@ def run_training_pipeline(
     model_save_path = os.path.join(model_dir, "quantile_forecaster.joblib")
     forecaster.save(model_save_path)
 
-    # ── 5b. Compute Out-of-Sample (OOS) Evaluation Metrics ──────────────────
+    #  5b. Compute Out-of-Sample (OOS) Evaluation Metrics 
     print("Computing out-of-sample evaluation metrics on held-out 20%...")
     oos_preds_df = forecaster.predict(X_test.iloc[[0]])  # 1-step-ahead from test start
     # For OOS directional accuracy: use 1-step-ahead P50 predictions across the test set
@@ -140,7 +140,7 @@ def run_training_pipeline(
         oos_metrics["directional_accuracy"] = round(da, 2)
         print(f"OOS MAE: {oos_metrics['mae']:.4f} | RMSE: {oos_metrics['rmse']:.4f} | DA: {da:.1f}%")
 
-    # ── 6. Compute and export SHAP explainability artifact ─────────────────
+    #  6. Compute and export SHAP explainability artifact 
     shap_json_path = os.path.join(model_dir, "shap_summary.json")
     latest_row = X_train.iloc[[-1]]  # use last training row for SHAP baseline
 
@@ -159,7 +159,7 @@ def run_training_pipeline(
             output_path=shap_json_path,
         )
 
-    # ── 7. Generate 30-day forward predictions & write contract JSON ────────
+    #  7. Generate 30-day forward predictions & write contract JSON 
     print("Generating 30-day forward quantile forecasts...")
     predictions = forecaster.predict(latest_row)
 

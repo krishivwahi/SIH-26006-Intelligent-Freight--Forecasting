@@ -7,10 +7,10 @@ Sources:
     Day 2: Researcher_2_Day_2_Laycan_Matrix.xlsx          (2026-09-04)
 
 SWAP STATUS:
-    ✅  Vessel data:  real names, DWT, speed, fuel (from published vessel specs)
-    ✅  Route data:   real ports, planning distances, corrected transit days,
+      Vessel data:  real names, DWT, speed, fuel (from published vessel specs)
+      Route data:   real ports, planning distances, corrected transit days,
                      real cargo lots (40–50 kt to fit the Alpha vessel pool)
-    ✅  Laycan windows: REAL per-(vessel, route) windows from Day 2 xlsx.
+      Laycan windows: REAL per-(vessel, route) windows from Day 2 xlsx.
                        Stored in LAYCAN_MATRIX for Big-M constraints in solver.py.
                        Route-level envelopes (min open / max close) also updated
                        on each ROUTES entry for display / backward compatibility.
@@ -42,13 +42,13 @@ All laycan offsets are days from the solver run date (day 0 = 2026-09-04).
 """
 from __future__ import annotations
 
-# ── Risk aversion parameter ────────────────────────────────────────────────────
+#  Risk aversion parameter 
 # Exposed here so the Streamlit slider can override it per-run.
 # Formula: Score = p50 - LAMBDA * (p50 - p10)
 LAMBDA: float = 0.5
 HORIZON_DAYS: int = 30
 
-# ── Voyage Cost Parameters (Phase 3) ───────────────────────────────────────────
+#  Voyage Cost Parameters (Phase 3) 
 DEMURRAGE_USD_PER_DAY: float = 15000.0
 VLSFO_PRICE_USD_MT: float = 600.0
 MGO_PRICE_USD_MT: float = 800.0
@@ -87,7 +87,7 @@ def calculate_daily_bunker_cost(
         
     return main_engine_cost + aux_cost
 
-# ── Vessel matrix (5 vessels, Phase 1 Alpha scope) ────────────────────────────
+#  Vessel matrix (5 vessels, Phase 1 Alpha scope) 
 # Fields:
 #   vessel_id            : matches vessel_id in the JSON contract (frozen)
 #   vessel_name          : real published vessel name (see Assumption A-01)
@@ -102,7 +102,7 @@ def calculate_daily_bunker_cost(
 #   fuel_note            : source wording for fuel type / auxiliary inclusion
 #                          (see Assumption A-02 — do NOT silently mix fuel prices)
 #
-# ⚠ V-001 (38,854 DWT Handysize) is too small for every route in the real matrix
+#  V-001 (38,854 DWT Handysize) is too small for every route in the real matrix
 #   (all cargo lots are 40,000–50,000 MT).  It will be filtered out by
 #   _is_capacity_feasible() and show as idle.  This is correct domain behaviour.
 VESSELS: list[dict] = [
@@ -168,7 +168,7 @@ VESSELS: list[dict] = [
     },
 ]
 
-# ── Route matrix (10 routes, Phase 1 Alpha scope) ─────────────────────────────
+#  Route matrix (10 routes, Phase 1 Alpha scope) 
 # Fields:
 #   route_id              : matches route_id in the JSON contract (frozen)
 #   origin                : loading port, "Port, Country" format
@@ -319,7 +319,7 @@ ROUTES: list[dict] = [
     },
 ]
 
-# ── Per-(vessel, route) laycan windows — Day 2 Big-M source ───────────────────
+#  Per-(vessel, route) laycan windows — Day 2 Big-M source 
 # Sourced from Researcher_2_Day_2_Laycan_Matrix.xlsx, sheet Day2_Laycan_Matrix.
 # Key: (vessel_id, route_id)
 # Value: dict with:
@@ -330,7 +330,7 @@ ROUTES: list[dict] = [
 # V-001 rows are kept explicitly so the Big-M constraint generator can
 # FORBID those triples rather than silently skipping them.
 LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
-    # ── R-01 Hay Point → Visakhapatnam ───────────────────────────────────────
+    #  R-01 Hay Point → Visakhapatnam 
     ("V-001", "R-01"): {
         "vessel_id": "V-001",
         "route_id": "R-01",
@@ -396,7 +396,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
         "cargo_requirement_dwt": 50000,
         "vessel_capacity_dwt": 57016,
     },
-    # ── R-02 Hay Point → Paradip ───────────────────────────────────────
+    #  R-02 Hay Point → Paradip 
     ("V-001", "R-02"): {
         "vessel_id": "V-001",
         "route_id": "R-02",
@@ -462,7 +462,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
         "cargo_requirement_dwt": 50000,
         "vessel_capacity_dwt": 57016,
     },
-    # ── R-03 Hay Point → Haldia ───────────────────────────────────────
+    #  R-03 Hay Point → Haldia 
     ("V-001", "R-03"): {
         "vessel_id": "V-001",
         "route_id": "R-03",
@@ -528,7 +528,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
         "cargo_requirement_dwt": 40000,
         "vessel_capacity_dwt": 57016,
     },
-    # ── R-04 Hay Point → Gangavaram ───────────────────────────────────────
+    #  R-04 Hay Point → Gangavaram 
     ("V-001", "R-04"): {
         "vessel_id": "V-001",
         "route_id": "R-04",
@@ -594,7 +594,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
         "cargo_requirement_dwt": 50000,
         "vessel_capacity_dwt": 57016,
     },
-    # ── R-05 Gladstone → Visakhapatnam ───────────────────────────────────────
+    #  R-05 Gladstone → Visakhapatnam 
     ("V-001", "R-05"): {
         "vessel_id": "V-001",
         "route_id": "R-05",
@@ -660,7 +660,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
         "cargo_requirement_dwt": 50000,
         "vessel_capacity_dwt": 57016,
     },
-    # ── R-06 Gladstone → Paradip ───────────────────────────────────────
+    #  R-06 Gladstone → Paradip 
     ("V-001", "R-06"): {
         "vessel_id": "V-001",
         "route_id": "R-06",
@@ -726,7 +726,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
         "cargo_requirement_dwt": 50000,
         "vessel_capacity_dwt": 57016,
     },
-    # ── R-07 Gladstone → Haldia ───────────────────────────────────────
+    #  R-07 Gladstone → Haldia 
     ("V-001", "R-07"): {
         "vessel_id": "V-001",
         "route_id": "R-07",
@@ -792,7 +792,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
         "cargo_requirement_dwt": 40000,
         "vessel_capacity_dwt": 57016,
     },
-    # ── R-08 Dalrymple Bay → Paradip ───────────────────────────────────────
+    #  R-08 Dalrymple Bay → Paradip 
     ("V-001", "R-08"): {
         "vessel_id": "V-001",
         "route_id": "R-08",
@@ -858,7 +858,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
         "cargo_requirement_dwt": 50000,
         "vessel_capacity_dwt": 57016,
     },
-    # ── R-09 Vancouver → Visakhapatnam ───────────────────────────────────────
+    #  R-09 Vancouver → Visakhapatnam 
     ("V-001", "R-09"): {
         "vessel_id": "V-001",
         "route_id": "R-09",
@@ -924,7 +924,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
         "cargo_requirement_dwt": 50000,
         "vessel_capacity_dwt": 57016,
     },
-    # ── R-10 Hampton Roads → Paradip ───────────────────────────────────────
+    #  R-10 Hampton Roads → Paradip 
     ("V-001", "R-10"): {
         "vessel_id": "V-001",
         "route_id": "R-10",
@@ -992,7 +992,7 @@ LAYCAN_MATRIX: dict[tuple[str, str], dict] = {
     },
 }
 
-# ── Derived lookups (computed once at import time) ────────────────────────────
+#  Derived lookups (computed once at import time) 
 VESSEL_IDS: list[str] = [v["vessel_id"] for v in VESSELS]
 ROUTE_IDS: list[str] = [r["route_id"] for r in ROUTES]
 ROUTE_MAP: dict[str, dict] = {r["route_id"]: r for r in ROUTES}
