@@ -19,6 +19,10 @@ import pandas as pd
 
 from src.data.feature_engineering import build_feature_matrix
 from src.data.load_real_data import load_and_merge_all
+from src.benchmarks.metrics import (
+    calculate_directional_accuracy,
+    calculate_forecast_errors,
+)
 from src.forecaster.baseline_arima import AutoARIMABaseline
 from src.forecaster.explainability import export_shap_summary
 from src.forecaster.quantile_model import QuantileForecaster
@@ -71,42 +75,80 @@ def run_training_pipeline(
     # ── 2. Build base feature matrix (calendar, seasonal, lags, rolling, momentum) ──
     X, y = build_feature_matrix(df_raw, target_column="freight_rate", date_column="date")
 
-    # ── 4. Fit AutoARIMA baseline and add ensemble bridge feature ───────────
-    print("Fitting AutoARIMA baseline...")
-    arima_model = AutoARIMABaseline(max_p=2, max_q=2, max_d=1, random_state=random_state)
-    # Fit ARIMA on the continuous y series
-    arima_model.fit(y)
-    arima_fitted = arima_model.predict_in_sample()
+    # ── 3. Temporal 80/20 train / test split ────────────────────────────────
+    # Splitting by time (not random) to avoid lookahead leakage.
+    # The model trains on the first 80% of the dataset and is evaluated on
+    # the final 20% it has never seen — giving out-of-sample (OOS) metrics.
+    split_idx = int(len(X) * 0.80)
+    X_train, X_test = X.iloc[:split_idx].copy(), X.iloc[split_idx:].copy()
+    y_train, y_test = y.iloc[:split_idx].copy(), y.iloc[split_idx:].copy()
+    print(f"Train: {len(X_train)} rows | Test (OOS): {len(X_test)} rows")
 
-    # Align in-sample ARIMA predictions as an input feature for LightGBM
-    X = X.copy()
-    X["arima_pred"] = arima_fitted[-len(X):]
+    # ── 4. Fit AutoARIMA baseline on TRAIN only, inject as bridge feature ───
+    print("Fitting AutoARIMA baseline on train split...")
+    arima_model = AutoARIMABaseline(max_p=2, max_q=2, max_d=1, random_state=random_state)
+    arima_model.fit(y_train)
+    arima_fitted_train = arima_model.predict_in_sample()
+
+    # Inject in-sample ARIMA predictions as a bridge feature for LightGBM
+    X_train["arima_pred"] = arima_fitted_train[-len(X_train):]
+
+    # For the test set, produce ARIMA out-of-sample forecasts
+    try:
+        arima_oos = arima_model.model_.predict(n_periods=len(X_test))
+        X_test["arima_pred"] = arima_oos
+    except Exception:
+        # Fallback: use the last known fitted value
+        X_test["arima_pred"] = arima_fitted_train[-1] if len(arima_fitted_train) else 0.0
 
     arima_path = os.path.join(model_dir, "arima_baseline.joblib")
     arima_model.save(arima_path)
 
-    # ── 5. Train LightGBM Multi-Step Quantile Regressors ────────────────────
-    print(f"Training QuantileForecaster on {len(X)} samples with {X.shape[1]} features...")
+    # ── 5. Train LightGBM Multi-Step Quantile Regressors on TRAIN only ──────
+    print(f"Training QuantileForecaster on {len(X_train)} samples with {X_train.shape[1]} features...")
     forecaster = QuantileForecaster(
         horizon=30,
         n_estimators=n_estimators,
         learning_rate=learning_rate,
         random_state=random_state,
     )
-    forecaster.train(X, y)
+    forecaster.train(X_train, y_train)
 
     model_save_path = os.path.join(model_dir, "quantile_forecaster.joblib")
     forecaster.save(model_save_path)
 
+    # ── 5b. Compute Out-of-Sample (OOS) Evaluation Metrics ──────────────────
+    print("Computing out-of-sample evaluation metrics on held-out 20%...")
+    oos_preds_df = forecaster.predict(X_test.iloc[[0]])  # 1-step-ahead from test start
+    # For OOS directional accuracy: use 1-step-ahead P50 predictions across the test set
+    oos_p50_list = []
+    step = max(1, len(X_test) // 30)  # sample ~30 points across test window
+    for idx in range(0, len(X_test), step):
+        row_pred = forecaster.predict(X_test.iloc[[idx]])
+        p50_h1 = float(row_pred[row_pred["horizon_step"] == 1]["p50"].iloc[0])
+        oos_p50_list.append(p50_h1)
+
+    # Align true values to the sampled indices
+    sampled_indices = list(range(0, len(X_test), step))
+    y_test_sampled = [float(y_test.iloc[i]) for i in sampled_indices]
+
+    oos_metrics: dict = {"mae": None, "rmse": None, "r2": None, "mape": None, "directional_accuracy": None}
+    if len(oos_p50_list) >= 2 and len(y_test_sampled) >= 2:
+        n = min(len(oos_p50_list), len(y_test_sampled))
+        oos_metrics = calculate_forecast_errors(y_test_sampled[:n], oos_p50_list[:n])
+        da = calculate_directional_accuracy(y_test_sampled[:n], oos_p50_list[:n])
+        oos_metrics["directional_accuracy"] = round(da, 2)
+        print(f"OOS MAE: {oos_metrics['mae']:.4f} | RMSE: {oos_metrics['rmse']:.4f} | DA: {da:.1f}%")
+
     # ── 6. Compute and export SHAP explainability artifact ─────────────────
     shap_json_path = os.path.join(model_dir, "shap_summary.json")
-    latest_row = X.iloc[[-1]]
+    latest_row = X_train.iloc[[-1]]  # use last training row for SHAP baseline
 
     # Extract the median (alpha=0.5) model for representative SHAP attributions
     median_model = forecaster.models.get(0.5)
     if median_model is not None:
         print("Computing SHAP feature attributions...")
-        background_X = X.iloc[:200].copy()
+        background_X = X_train.iloc[:200].copy()
         background_X["horizon_step"] = 1
         eval_row = latest_row.copy()
         eval_row["horizon_step"] = 1
@@ -146,11 +188,13 @@ def run_training_pipeline(
         "forecast_path": os.path.abspath(written_path),
         "excel_path": os.path.abspath(excel_path),
         "csv_path": os.path.abspath(csv_path),
-        "training_samples": len(X),
-        "feature_count": X.shape[1],
+        "training_samples": len(X_train),
+        "test_samples": len(X_test),
+        "feature_count": X_train.shape[1],
         "horizon_days": 30,
         "base_date": run_base_date.isoformat(),
         "rate_scale": scale,
+        "oos_metrics": oos_metrics,
     }
 
 

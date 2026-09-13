@@ -187,9 +187,12 @@ def merge_data_sources(
             src[date_column] = pd.to_datetime(src[date_column])
             merged = merged.merge(src, on=date_column, how="left")
 
-    # Forward-fill monthly series, then back-fill any leading NaNs
+    # Forward-fill monthly series (GSCPI, commodities) to daily granularity.
+    # NOTE: We deliberately do NOT back-fill (bfill) — back-filling leading NaNs
+    # with future values would introduce lookahead leakage into early training rows.
+    # Residual leading NaNs are dropped by the valid_mask in build_feature_matrix.
     merged = merged.sort_values(date_column).reset_index(drop=True)
-    merged = merged.ffill().bfill()
+    merged = merged.ffill()
     return merged
 
 

@@ -53,6 +53,10 @@ DEMURRAGE_USD_PER_DAY: float = 15000.0
 VLSFO_PRICE_USD_MT: float = 600.0
 MGO_PRICE_USD_MT: float = 800.0
 
+# INR/USD exchange rate for financial reporting in Indian Rupees.
+# Update this periodically to reflect current RBI reference rate.
+INR_PER_USD: float = 84.0
+
 PORT_WAITING_DAYS: dict[str, float] = {
     "Paradip": 1.0,
     "Haldia": 2.0,

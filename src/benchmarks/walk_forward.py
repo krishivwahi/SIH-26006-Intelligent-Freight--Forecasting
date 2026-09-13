@@ -5,6 +5,13 @@ Multi-Cycle Walk-Forward Historical Backtesting Engine.
 Replays 12 sequential 30-day chartering cycles across 2 years of real historical proxy data
 (data/processed/merged_market_data.csv: Sept 2024 to Sept 2026).
 Evaluates decision win-rates, cumulative financial savings, and drawdown protection.
+
+NOTE (Alpha Scope):
+    The per-cycle assignment uses a simplified 4-vessel × 4-route paired heuristic
+    (not the full MILP solver) to keep backtesting fast over 12 cycles.
+    The AI policy advantage is demonstrated through *laycan timing intelligence*
+    (choosing the optimal rate day within the 3-day window) vs naive Day-1 booking.
+    Full MILP replay per cycle is deferred to Beta.
 """
 
 from __future__ import annotations
@@ -30,6 +37,9 @@ from src.solver.parameters import (
 )
 
 DEFAULT_DATA_PATH = Path("data/processed/merged_market_data.csv")
+
+# INR/USD exchange rate for INR reporting — update periodically.
+INR_PER_USD: float = 84.0
 
 
 @dataclass
@@ -120,15 +130,16 @@ def run_walk_forward_backtest(
         raw_rates = window_df["freight_rate"].values
         base_rates_usd = raw_rates * 0.015 if np.mean(raw_rates) > 100 else raw_rates
 
-        # Compute cycle performance for each policy:
-        # 1. Naive Spot: books on Day 1 of laycan
-        naive_profit = 0.0
-        naive_cost = 0.0
-        # 2. AI Policy: selects optimal day in 3-day laycan (takes lowest rate / best timing)
-        ai_profit = 0.0
-        ai_cost = 0.0
-        # 3. Greedy Policy: selects lowest spot day in entire window
-        greedy_profit = 0.0
+        # Compute cycle performance for each policy from the CHARTERER'S (BUYER'S) perspective.
+        # Ministry of Steel pays freight rates — a LOWER rate = cost savings for the buyer.
+        # AI policy: selects the minimum freight rate day in the 3-day laycan window.
+        # Naive policy: books on Day 1 of the laycan at whatever spot rate is available.
+        # Savings = naive_total_cost - ai_total_cost (positive = AI saved money for the buyer)
+        naive_total_cost = 0.0  # Total landed cost under Naive policy
+        naive_cost = 0.0        # Voyage costs component
+        ai_total_cost = 0.0     # Total landed cost under AI policy
+        ai_cost = 0.0           # Voyage costs component
+        greedy_total_cost = 0.0 # Total landed cost under Greedy policy
 
         for v, r in zip(active_vessels, active_routes):
             cargo = r["cargo_requirement_dwt"]
@@ -141,32 +152,33 @@ def run_walk_forward_backtest(
             lc_open = min(r["laycan_open"], cycle_days - 3)
             lc_close = min(lc_open + 2, cycle_days - 1)
 
-            # Spot rate at laycan open (Day 1)
+            # Naive: spot rate on Day 1 of laycan — no forward intelligence
             naive_rate = float(base_rates_usd[lc_open])
-            naive_rev = naive_rate * cargo
-            naive_profit += (naive_rev - voyage_cost)
+            naive_total_cost += (naive_rate * cargo + voyage_cost)
             naive_cost += voyage_cost
 
-            # AI chooses optimal rate within 3-day laycan window
+            # AI: picks minimum freight rate in the 3-day laycan window
+            # (lower cost = better for the charterer/buyer)
             laycan_rates = base_rates_usd[lc_open : lc_close + 1]
-            ai_rate = float(np.min(laycan_rates))  # AI captures best loading timing
-            ai_rev = ai_rate * cargo
-            ai_profit += (ai_rev - voyage_cost)
+            ai_rate = float(np.min(laycan_rates))
+            ai_total_cost += (ai_rate * cargo + voyage_cost)
             ai_cost += voyage_cost
 
-            # Greedy rate across broader horizon
+            # Greedy: picks global minimum rate across the full cycle window
             greedy_rate = float(np.min(base_rates_usd))
-            greedy_profit += (greedy_rate * cargo - voyage_cost)
+            greedy_total_cost += (greedy_rate * cargo + voyage_cost)
 
-        cycle_savings = ai_profit - naive_profit
-        # When rate timing saves money, profit is higher
-        if cycle_savings <= 0:
-            # Market was strictly flat or rising; minimum positive optimization margin
-            cycle_savings = abs(cycle_savings) + 15000.0
-            ai_profit = naive_profit + cycle_savings
+        # Savings from buyer's perspective: positive means AI was cheaper
+        cycle_savings = naive_total_cost - ai_total_cost
+        # Convert cost perspective to profit-uplift perspective for reporting
+        ai_profit = -ai_total_cost      # negative cost = "profit" proxy for buyer
+        naive_profit = -naive_total_cost
+        greedy_profit = -greedy_total_cost
 
-        uplift = calculate_profit_uplift(ai_profit, naive_profit)
-        win = ai_profit > naive_profit
+        # Note: cycle_savings can be negative if the laycan window happened to have
+        # Day 1 as the cheapest rate (AI has nothing to improve). We report honestly.
+        uplift = calculate_profit_uplift(ai_total_cost, naive_total_cost)  # lower cost is better
+        win = cycle_savings > 0  # AI saved money vs naive
 
         running_savings += cycle_savings
         cumulative_savings.append(round(running_savings, 2))
@@ -192,7 +204,7 @@ def run_walk_forward_backtest(
     win_rate = (wins / len(cycles)) * 100.0
     mean_uplift = sum(c.profit_uplift_pct for c in cycles) / len(cycles)
     max_savings = max(c.cost_savings_usd for c in cycles)
-    total_savings_inr_cr = (running_savings * 83.5) / 1e7
+    total_savings_inr_cr = (running_savings * INR_PER_USD) / 1e7
 
     return WalkForwardSummary(
         num_cycles=len(cycles),
@@ -241,7 +253,7 @@ def _generate_calibrated_walk_forward_summary(num_cycles: int = 12) -> WalkForwa
         num_cycles=num_cycles,
         win_rate_pct=100.0,
         total_savings_usd=round(total, 2),
-        total_savings_inr_cr=round((total * 83.5) / 1e7, 2),
+        total_savings_inr_cr=round((total * INR_PER_USD) / 1e7, 2),
         mean_uplift_pct=12.4,
         max_cycle_savings_usd=172000.0,
         cycles=cycles,

@@ -138,21 +138,25 @@ class TestWalkForwardBacktest:
     """Test suite for continuous walk-forward multi-cycle backtesting."""
 
     def test_walk_forward_execution(self) -> None:
-        """Verify walk-forward executes across 12 cycles with valid financial totals."""
+        """Verify walk-forward executes across 12 cycles with valid financial totals.
+        
+        After the audit fix (removing the artificial savings floor), win_rate may be
+        less than 100% — this is intentional and more honest. We assert >= 50% as
+        a reasonable lower bound (random laycan timing should win ~half the time).
+        """
         from src.benchmarks.walk_forward import run_walk_forward_backtest
 
         summary = run_walk_forward_backtest(num_cycles=12)
         assert summary.num_cycles == 12
         assert len(summary.cycles) == 12
         assert len(summary.cumulative_savings) == 12
-        assert summary.win_rate_pct >= 80.0
-        assert summary.total_savings_usd > 500000.0
-        assert summary.total_savings_inr_cr > 4.0
-        assert summary.mean_uplift_pct > 1.0
-
-        # Cumulative savings must be non-decreasing
-        for i in range(1, len(summary.cumulative_savings)):
-            assert summary.cumulative_savings[i] >= summary.cumulative_savings[i - 1]
+        # Win rate should be > 50% (better than random)
+        assert summary.win_rate_pct >= 50.0
+        # We cannot assert total_savings > 500k since honest cycles may lose
+        # but the total over 12 cycles should still be positive on average
+        assert summary.mean_uplift_pct is not None  # must be computed
+        # Cumulative savings reflects honest gains/losses (may dip in flat markets)
+        assert len(summary.cumulative_savings) == 12
 
     def test_walk_forward_fallback(self) -> None:
         """Verify fallback runs cleanly if path does not exist."""

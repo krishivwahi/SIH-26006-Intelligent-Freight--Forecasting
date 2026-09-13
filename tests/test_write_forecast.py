@@ -37,7 +37,9 @@ def sample_predictions():
 class TestDefaults:
 
     def test_five_vessels(self):
-        assert len(DEFAULT_VESSELS) == 5
+        # V-001 (Handysize) is now filtered out as capacity-infeasible.
+        # DEFAULT_VESSELS contains only the 4 feasible Supramax vessels (V-002 to V-005).
+        assert len(DEFAULT_VESSELS) == 4
 
     def test_ten_routes(self):
         assert len(DEFAULT_ROUTES) == 10
@@ -46,7 +48,10 @@ class TestDefaults:
         assert set(DEFAULT_ROUTE_MULTIPLIERS.keys()) == set(DEFAULT_ROUTES)
 
     def test_vessel_multipliers_match_vessels(self):
-        assert set(DEFAULT_VESSEL_MULTIPLIERS.keys()) == set(DEFAULT_VESSELS)
+        # DEFAULT_VESSEL_MULTIPLIERS retains V-001 for reference/display purposes.
+        # Assert that all active vessels (DEFAULT_VESSELS) are covered by multipliers.
+        for v in DEFAULT_VESSELS:
+            assert v in DEFAULT_VESSEL_MULTIPLIERS
 
 
 # ---------------------------------------------------------------------------
@@ -57,8 +62,8 @@ class TestCreateForecastRecords:
 
     def test_record_count(self, sample_predictions):
         records = create_forecast_records(sample_predictions)
-        # 5 steps x 5 vessels x 10 routes = 250
-        assert len(records) == 5 * 5 * 10
+        # 5 steps x 4 feasible vessels (V-001 excluded) x 10 routes = 200
+        assert len(records) == 5 * 4 * 10
 
     def test_record_schema(self, sample_predictions):
         records = create_forecast_records(sample_predictions)

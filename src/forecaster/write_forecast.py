@@ -35,7 +35,14 @@ from src.solver.parameters import LAYCAN_FEASIBLE, ROUTES, VESSELS
 # Default vessel and route IDs — single source of truth from parameters.py
 # ---------------------------------------------------------------------------
 
-DEFAULT_VESSELS: List[str] = [v["vessel_id"] for v in VESSELS]
+# Capacity-feasible vessels only — V-001 (Handysize, 38,854 DWT) is idle
+# because every route requires >= 40,000 MT cargo. Excluding it here prevents
+# ~150 dead records being written to the forecast JSON (they are forbidden by
+# LAYCAN_FEASIBLE Big-M constraints in the solver anyway).
+DEFAULT_VESSELS: List[str] = [
+    v["vessel_id"] for v in VESSELS
+    if any(LAYCAN_FEASIBLE.get((v["vessel_id"], r["route_id"]), False) for r in ROUTES)
+]
 DEFAULT_ROUTES: List[str] = [r["route_id"] for r in ROUTES]
 
 # ---------------------------------------------------------------------------

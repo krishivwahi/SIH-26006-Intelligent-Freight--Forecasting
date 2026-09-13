@@ -50,7 +50,7 @@ class TestTrainPipeline:
         with open(summary["forecast_path"], "r", encoding="utf-8") as f:
             records = json.load(f)
 
-        assert len(records) == 30 * 5 * 10  # 30 days x 5 vessels x 10 routes
+        assert len(records) == 30 * 4 * 10  # 30 days x 4 feasible vessels (V-001 excluded) x 10 routes
         required_keys = {"date_index", "vessel_id", "route_id", "p10_rate", "p50_rate", "p90_rate"}
         assert required_keys.issubset(records[0].keys())
 
