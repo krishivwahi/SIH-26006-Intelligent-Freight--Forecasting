@@ -605,6 +605,9 @@ else:
             _cargo   = _asgn.get("cargo_dwt", 0)
             _transit = _asgn.get("transit_days", 0)
             _wait    = _asgn.get("port_waiting_days", 0)
+            _cr_days = _asgn.get("country_risk_delay_days", 0)
+            _cr_cost = _asgn.get("country_risk_cost_usd", 0)
+            _cr_country = _asgn.get("origin_country", _origin)
             _spread  = _p90 - _p10
             _risk_label = (
                 "Low Risk — Rate is stable and predictable" if _spread < 1.0
@@ -627,6 +630,11 @@ else:
                     f"<tr><td>Journey</td><td><strong>{_delivery_days} days</strong> (sea + port)</td></tr>"
                     f"<tr><td>Freight rate</td><td><strong>${_p50:.2f}/tonne</strong></td></tr>"
                     f"<tr><td>Voyage cost</td><td>${_cost:,.0f} (fuel + port fees)</td></tr>"
+                    f"<tr><td>Country risk factored in</td><td><strong>{_cr_country}</strong>: "
+                    f"corruption + workforce/logistics efficiency adds "
+                    f"<strong>+{_cr_days:.2f} days</strong> to this journey, "
+                    f"costing an extra <strong>${_cr_cost:,.0f}</strong> "
+                    f"(already included in the voyage cost above)</td></tr>"
                     f"</table>"
                     f"<div class='ship-risk'>{_risk_label}</div>"
                     f"<div class='ship-saving'>Optimal timing avoids ${_saving_vs_worst:,.0f} in worst-case freight costs</div>"
@@ -657,6 +665,8 @@ else:
             "origin": "Origin", "destination": "Destination",
             "cargo_dwt": "Cargo (DWT)", "vessel_capacity_dwt": "Vessel Cap. (DWT)",
             "transit_days": "Transit (days)", "port_waiting_days": "Port Wait (days)",
+            "country_risk_delay_days": "Country Risk Delay (days)",
+            "country_risk_cost_usd": "Country Risk Cost ($)",
         })
         st.dataframe(
             df_display, use_container_width=True, hide_index=True,
@@ -672,6 +682,16 @@ else:
                 "Cargo (DWT)":         st.column_config.NumberColumn(format="%d"),
                 "Vessel Cap. (DWT)":   st.column_config.NumberColumn(format="%d"),
                 "Port Wait (days)":    st.column_config.NumberColumn(format="%.1f"),
+                "Country Risk Delay (days)": st.column_config.NumberColumn(
+                    format="%.2f",
+                    help="Extra origin-country loading delay from the corruption + "
+                    "workforce/logistics-efficiency composite (src/solver/country_risk.py).",
+                ),
+                "Country Risk Cost ($)": st.column_config.NumberColumn(
+                    format="$%.2f",
+                    help="Dollar cost of that delay (bunker + demurrage), already "
+                    "included in Voyage Cost — shown separately for transparency.",
+                ),
             },
         )
 

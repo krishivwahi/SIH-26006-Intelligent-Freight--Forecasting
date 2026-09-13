@@ -55,20 +55,23 @@ from src.solver.parameters import (
     calculate_daily_bunker_cost,
 )
 from src.solver.risk import compute_scores_bulk
+from src.solver.country_risk import compute_all_route_delays
 
-#  Constants 
+# ── Constants ─────────────────────────────────────────────────────────────────
 FORECAST_JSON_PATH = Path("data/interim/freight_forecast_30d.json")
 HORIZON_DAYS = 30
 
 
-#  Result dataclass 
+# ── Result dataclass ───────────────────────────────────────────────────────────
 @dataclass
 class AssignmentResult:
     """Structured solver output consumed by the Streamlit UI."""
 
     assignments: list[dict[str, Any]] = field(default_factory=list)
     """Each assigned triple: {vessel_id, route_id, date, score, p50_rate, p10_rate,
-    origin, destination, cargo_requirement_dwt, capacity_dwt}"""
+    origin, destination, cargo_requirement_dwt, capacity_dwt,
+    country_risk_delay_days, country_risk_cost_usd, origin_country
+    (see src/solver/country_risk.py)}"""
 
     solver_status: str = "Not Solved"
     """One of: 'Optimal', 'Infeasible', 'Unbounded', 'Not Solved'."""
@@ -89,7 +92,7 @@ class AssignmentResult:
     freight_multiplier_used: float = 1.0
 
 
-#  Internal helpers 
+# ── Internal helpers ───────────────────────────────────────────────────────────
 
 def _load_forecast(path: Path) -> list[dict]:
     """Load and validate the contract JSON.
@@ -181,7 +184,7 @@ def _is_min_cargo_feasible(vessel: dict, route: dict) -> bool:
     return route["cargo_requirement_dwt"] >= vessel.get("min_cargo_dwt", 0)
 
 
-#  Public API 
+# ── Public API ─────────────────────────────────────────────────────────────────
 
 def solve(
     lam: float = LAMBDA,
@@ -189,6 +192,7 @@ def solve(
     base_date: date | None = None,
     vlsfo_price: float = VLSFO_PRICE_USD_MT,
     freight_multiplier: float = 1.0,
+    apply_country_risk: bool = True,
 ) -> AssignmentResult:
     """Run the MILP solver and return a structured assignment result.
 
@@ -198,6 +202,11 @@ def solve(
         base_date:          Day 0 of the 30-day horizon (default: today).
         vlsfo_price:        Bunker fuel price ($/MT) for VLSFO (default: parameters.py).
         freight_multiplier: What-if freight rate multiplier (default: 1.0 = baseline, 0.8 = -20% crash).
+        apply_country_risk: If True (default), add each route's expected
+                             origin-country corruption/workforce-efficiency
+                             delay (src/solver/country_risk.py) on top of
+                             PORT_WAITING_DAYS. Set False to reproduce the
+                             pre-country-risk cost/objective values.
 
     Returns:
         AssignmentResult with assignments list, status, objective, and timing.
@@ -205,7 +214,14 @@ def solve(
     if base_date is None:
         base_date = date.today()
 
-    #  1. Load forecast and compute risk-adjusted scores 
+    # Expected extra loading-side delay per route, driven by the origin
+    # country's corruption + workforce/logistics-efficiency composite.
+    # See src/solver/country_risk.py for sources and formula.
+    country_delay_lookup: dict[str, float] = (
+        compute_all_route_delays(ROUTES) if apply_country_risk else {}
+    )
+
+    # ── 1. Load forecast and compute risk-adjusted scores ──────────────────
     records = _load_forecast(forecast_path)
     if abs(freight_multiplier - 1.0) > 1e-4:
         scaled_records = []
@@ -227,7 +243,7 @@ def solve(
 
     date_strings = _build_date_index(base_date, HORIZON_DAYS)
 
-    #  2. Build feasible (vessel, route, day_offset) triples 
+    # ── 2. Build feasible (vessel, route, day_offset) triples ─────────────────
     # A triple is feasible if:
     #   a) LAYCAN_MATRIX marks (vessel, route) as feasible (DWT >= cargo)
     #   b) the day_offset falls within THIS vessel's specific laycan window
@@ -265,7 +281,10 @@ def solve(
         freight_revenue = score_lookup[key] * route["cargo_requirement_dwt"]
         
         # Voyage cost calculation
-        wait_days = PORT_WAITING_DAYS.get(route.get("destination", ""), 0.0)
+        wait_days = (
+            PORT_WAITING_DAYS.get(route.get("destination", ""), 0.0)
+            + country_delay_lookup.get(rid, 0.0)
+        )
         total_days = route["transit_days"] + wait_days
         bunker_cost = total_days * calculate_daily_bunker_cost(vessel, vlsfo_price=vlsfo_price)
         port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
@@ -274,7 +293,7 @@ def solve(
         net_profit = freight_revenue - voyage_cost
         net_profit_lookup[key] = net_profit
 
-    #  3. Build PuLP problem 
+    # ── 3. Build PuLP problem ───────────────────────────────────────────────────
     prob = pulp.LpProblem("VesselRouteAssignment", pulp.LpMaximize)
 
     # Binary variable for each feasible triple
@@ -283,7 +302,7 @@ def solve(
         var_name = "x_{}_{}_{}".format(*key).replace("-", "_")
         x[key] = pulp.LpVariable(var_name, cat="Binary")
 
-    #  Big-M: explicitly forbid all capacity-infeasible (vessel, route) triples
+    # ── Big-M: explicitly forbid all capacity-infeasible (vessel, route) triples
     # The xlsx instructs: "FORBID (set assignment upper bound to 0)" for V-001.
     # We do this by adding a dedicated variable with ub=0 for every (V-001, route,
     # day) triple that is in the horizon but was excluded from the feasible list.
@@ -329,7 +348,7 @@ def solve(
         if route_vars:
             prob += pulp.lpSum(route_vars) <= 1, f"OneVesselPerRoute_{rid}"
 
-    #  4. Solve 
+    # ── 4. Solve ───────────────────────────────────────────────────────────
     t0 = time.perf_counter()
     # msg=0 suppresses CBC stdout; timeLimit guards against runaway solves
     solver = pulp.PULP_CBC_CMD(msg=0, timeLimit=30)
@@ -351,7 +370,7 @@ def solve(
     #       status_str = "Time-limited (best found)"
     # Not triggered at 1,200 variables, but wired here for Beta readiness.
 
-    #  5. Extract assignments 
+    # ── 5. Extract assignments ─────────────────────────────────────────────
     assignments: list[dict[str, Any]] = []
     if prob.status == pulp.LpStatusOptimal:
         for key, var in x.items():
@@ -361,13 +380,25 @@ def solve(
                 vessel_info = VESSEL_MAP[vid]
                 route_info = ROUTE_MAP[rid]
                 # Re-calculate costs for output
-                wait_days = PORT_WAITING_DAYS.get(route_info.get("destination", ""), 0.0)
+                country_risk_days = country_delay_lookup.get(rid, 0.0)
+                wait_days = (
+                    PORT_WAITING_DAYS.get(route_info.get("destination", ""), 0.0)
+                    + country_risk_days
+                )
                 total_days = route_info["transit_days"] + wait_days
-                bunker_cost = total_days * calculate_daily_bunker_cost(vessel_info, vlsfo_price=vlsfo_price)
+                daily_bunker = calculate_daily_bunker_cost(vessel_info, vlsfo_price=vlsfo_price)
+                bunker_cost = total_days * daily_bunker
                 port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
                 voyage_cost = bunker_cost + port_delay_cost
                 freight_revenue = score_lookup[key] * route_info["cargo_requirement_dwt"]
                 net_profit = freight_revenue - voyage_cost
+
+                # Isolate the dollar cost attributable ONLY to the origin-country
+                # corruption/workforce-efficiency delay (src/solver/country_risk.py),
+                # separate from the destination-side PORT_WAITING_DAYS cost, so the
+                # UI can state the country-semantics contribution explicitly rather
+                # than burying it inside the combined voyage_cost figure.
+                country_risk_cost_usd = country_risk_days * (daily_bunker + DEMURRAGE_USD_PER_DAY)
 
                 assignments.append(
                     {
@@ -386,6 +417,9 @@ def solve(
                         "vessel_capacity_dwt": vessel_info["capacity_dwt"],
                         "transit_days": route_info["transit_days"],
                         "port_waiting_days": wait_days,
+                        "country_risk_delay_days": country_risk_days,
+                        "country_risk_cost_usd": round(country_risk_cost_usd, 2),
+                        "origin_country": route_info["origin"].rsplit(",", 1)[-1].strip(),
                         "review_status": route_info.get("review_status", "KEEP"),
                         "cargo_type": route_info.get("cargo_type", "coking_coal"),
                     }
