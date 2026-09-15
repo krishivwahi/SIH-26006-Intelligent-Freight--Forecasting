@@ -54,8 +54,14 @@ from src.solver.parameters import (
     VLSFO_PRICE_USD_MT,
     calculate_daily_bunker_cost,
 )
+from src.solver.country_risk import (
+    CORRUPTION_WEIGHT,
+    MAX_COUNTRY_RISK_DELAY_DAYS,
+    WORKFORCE_WEIGHT,
+    compute_all_route_delays,
+    get_country_risk,
+)
 from src.solver.risk import compute_scores_bulk
-from src.solver.country_risk import compute_all_route_delays
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 FORECAST_JSON_PATH = Path("data/interim/freight_forecast_30d.json")
@@ -184,6 +190,24 @@ def _is_min_cargo_feasible(vessel: dict, route: dict) -> bool:
     return route["cargo_requirement_dwt"] >= vessel.get("min_cargo_dwt", 0)
 
 
+def _country_risk_breakdown(origin: str) -> dict[str, float]:
+    """Return the auditable corruption/workforce contributions for an origin."""
+    risk = get_country_risk(origin)
+    corruption_component = (100 - risk["cpi_score"]) / 100
+    workforce_component = (5 - risk["lpi_score"]) / 4
+    corruption_delay = CORRUPTION_WEIGHT * corruption_component * MAX_COUNTRY_RISK_DELAY_DAYS
+    workforce_delay = WORKFORCE_WEIGHT * workforce_component * MAX_COUNTRY_RISK_DELAY_DAYS
+    return {
+        "cpi_score": float(risk["cpi_score"]),
+        "lpi_score": float(risk["lpi_score"]),
+        "corruption_component": round(corruption_component, 4),
+        "workforce_component": round(workforce_component, 4),
+        "corruption_delay_days": round(corruption_delay, 3),
+        "workforce_delay_days": round(workforce_delay, 3),
+        "semantic_delay_days": round(corruption_delay + workforce_delay, 3),
+    }
+
+
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 def solve(
@@ -276,18 +300,22 @@ def solve(
         vid, rid, date_str = key
         vessel = VESSEL_MAP[vid]
         route = ROUTE_MAP[rid]
+        risk_breakdown = _country_risk_breakdown(route["origin"])
         
         # Freight revenue = Score ($/ton) * Cargo Lot (ton)
         freight_revenue = score_lookup[key] * route["cargo_requirement_dwt"]
         
         # Voyage cost calculation
-        wait_days = (
-            PORT_WAITING_DAYS.get(route.get("destination", ""), 0.0)
-            + country_delay_lookup.get(rid, 0.0)
+        semantic_delay_days = (
+            country_delay_lookup.get(rid, 0.0)
+            if apply_country_risk
+            else 0.0
         )
-        total_days = route["transit_days"] + wait_days
+        wait_days = PORT_WAITING_DAYS.get(route.get("destination", ""), 0.0)
+        total_port_delay_days = wait_days + semantic_delay_days
+        total_days = route["transit_days"] + total_port_delay_days
         bunker_cost = total_days * calculate_daily_bunker_cost(vessel, vlsfo_price=vlsfo_price)
-        port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
+        port_delay_cost = total_port_delay_days * DEMURRAGE_USD_PER_DAY
         voyage_cost = bunker_cost + port_delay_cost
         
         net_profit = freight_revenue - voyage_cost
@@ -379,16 +407,19 @@ def solve(
                 rec = rate_lookup.get(key, {})
                 vessel_info = VESSEL_MAP[vid]
                 route_info = ROUTE_MAP[rid]
+                risk_breakdown = _country_risk_breakdown(route_info["origin"])
                 # Re-calculate costs for output
-                country_risk_days = country_delay_lookup.get(rid, 0.0)
-                wait_days = (
-                    PORT_WAITING_DAYS.get(route_info.get("destination", ""), 0.0)
-                    + country_risk_days
+                wait_days = PORT_WAITING_DAYS.get(route_info.get("destination", ""), 0.0)
+                semantic_delay_days = (
+                    country_delay_lookup.get(rid, 0.0)
+                    if apply_country_risk
+                    else 0.0
                 )
-                total_days = route_info["transit_days"] + wait_days
+                total_port_delay_days = wait_days + semantic_delay_days
+                total_days = route_info["transit_days"] + total_port_delay_days
                 daily_bunker = calculate_daily_bunker_cost(vessel_info, vlsfo_price=vlsfo_price)
                 bunker_cost = total_days * daily_bunker
-                port_delay_cost = wait_days * DEMURRAGE_USD_PER_DAY
+                port_delay_cost = total_port_delay_days * DEMURRAGE_USD_PER_DAY
                 voyage_cost = bunker_cost + port_delay_cost
                 freight_revenue = score_lookup[key] * route_info["cargo_requirement_dwt"]
                 net_profit = freight_revenue - voyage_cost
@@ -398,7 +429,7 @@ def solve(
                 # separate from the destination-side PORT_WAITING_DAYS cost, so the
                 # UI can state the country-semantics contribution explicitly rather
                 # than burying it inside the combined voyage_cost figure.
-                country_risk_cost_usd = country_risk_days * (daily_bunker + DEMURRAGE_USD_PER_DAY)
+                country_risk_cost_usd = semantic_delay_days * (daily_bunker + DEMURRAGE_USD_PER_DAY)
 
                 assignments.append(
                     {
@@ -416,10 +447,14 @@ def solve(
                         "cargo_dwt": route_info["cargo_requirement_dwt"],
                         "vessel_capacity_dwt": vessel_info["capacity_dwt"],
                         "transit_days": route_info["transit_days"],
-                        "port_waiting_days": wait_days,
-                        "country_risk_delay_days": country_risk_days,
+                        "port_waiting_days": round(total_port_delay_days, 3),
+                        "total_port_delay_days": round(total_port_delay_days, 3),
+                        "country_risk_delay_days": semantic_delay_days,
                         "country_risk_cost_usd": round(country_risk_cost_usd, 2),
+                        "semantic_delay_days": semantic_delay_days,
+                        "semantic_delay_cost": round(semantic_delay_days * DEMURRAGE_USD_PER_DAY, 2),
                         "origin_country": route_info["origin"].rsplit(",", 1)[-1].strip(),
+                        **risk_breakdown,
                         "review_status": route_info.get("review_status", "KEEP"),
                         "cargo_type": route_info.get("cargo_type", "coking_coal"),
                     }

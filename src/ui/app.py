@@ -528,6 +528,48 @@ else:
         )
         st.markdown(impact_html, unsafe_allow_html=True)
 
+    # Semantic decision impact: these values are part of the solver objective.
+    if assignments:
+        semantic_delay = sum(float(r.get("semantic_delay_days", 0.0)) for r in assignments)
+        semantic_cost = sum(float(r.get("semantic_delay_cost", 0.0)) for r in assignments)
+        corruption_delay = sum(float(r.get("corruption_delay_days", 0.0)) for r in assignments)
+        workforce_delay = sum(float(r.get("workforce_delay_days", 0.0)) for r in assignments)
+        st.markdown(
+            '<div class="vs-section"><span class="section-kicker">00b</span>How Country Semantics Changed the Plan</div>',
+            unsafe_allow_html=True,
+        )
+        st.caption(
+            "Origin-country corruption and workforce/logistics efficiency become expected loading delay. "
+            "The same delay is included in voyage cost and shown here by component."
+        )
+        semantic_cols = st.columns(4)
+        semantic_cols[0].metric("Semantic delay", f"{semantic_delay:.2f} days")
+        semantic_cols[1].metric("Corruption contribution", f"{corruption_delay:.2f} days")
+        semantic_cols[2].metric("Workforce contribution", f"{workforce_delay:.2f} days")
+        semantic_cols[3].metric("Semantic cost", f"${semantic_cost:,.0f}")
+
+        semantic_rows = []
+        for assignment in assignments:
+            semantic_rows.append({
+                "Assignment": f"{assignment['vessel_id']} → {assignment['route_id']}",
+                "Origin country": assignment["origin"].rsplit(",", 1)[-1].strip(),
+                "CPI (cleanliness)": assignment.get("cpi_score", 0.0),
+                "LPI (efficiency)": assignment.get("lpi_score", 0.0),
+                "Corruption delay (days)": assignment.get("corruption_delay_days", 0.0),
+                "Workforce delay (days)": assignment.get("workforce_delay_days", 0.0),
+                "Semantic cost ($)": assignment.get("semantic_delay_cost", 0.0),
+            })
+        st.dataframe(
+            pd.DataFrame(semantic_rows), use_container_width=True, hide_index=True,
+            column_config={
+                "CPI (cleanliness)": st.column_config.NumberColumn(format="%.0f"),
+                "LPI (efficiency)": st.column_config.NumberColumn(format="%.1f"),
+                "Corruption delay (days)": st.column_config.NumberColumn(format="%.3f"),
+                "Workforce delay (days)": st.column_config.NumberColumn(format="%.3f"),
+                "Semantic cost ($)": st.column_config.NumberColumn(format="$%.2f"),
+            },
+        )
+
     st.markdown("---")
 
     #   DECISION ADVISOR (Phase 3 — restyled) 
