@@ -812,10 +812,16 @@ else:
                     cone_fig.add_trace(go.Scatter(x=dates, y=p10, mode="lines", line=dict(color="rgba(73,200,188,0.2)", width=1), fill="tonexty", fillcolor="rgba(73,200,188,0.12)", name="80% Confidence Band (P10–P90)"))
                     cone_fig.add_trace(go.Scatter(x=dates, y=p50, mode="lines+markers", line=dict(color="#49c8bc", width=2.5), marker=dict(size=4), name="P50 Median Forecast"))
                     if assigned_for_route:
-                        cone_fig.add_vline(
-                            x=assigned_for_route["date"], line_width=2, line_dash="dash", line_color="#f1a15a",
-                            annotation_text=f"⚓ Assigned: {assigned_for_route['vessel_id']} ({assigned_for_route['date']})",
-                            annotation_position="top right", annotation_font=dict(color="#f1a15a", size=11),
+                        assigned_date = assigned_for_route["date"]
+                        assigned_label = f"⚓ Assigned: {assigned_for_route['vessel_id']} ({assigned_date})"
+                        cone_fig.add_shape(
+                            type="line", x0=assigned_date, x1=assigned_date, y0=0, y1=1,
+                            xref="x", yref="paper", line=dict(width=2, dash="dash", color="#f1a15a"),
+                        )
+                        cone_fig.add_annotation(
+                            x=assigned_date, y=1, xref="x", yref="paper", text=assigned_label,
+                            showarrow=False, xanchor="left", yanchor="top",
+                            font=dict(color="#f1a15a", size=11),
                         )
                     cone_fig.update_layout(
                         **_LAYOUT, xaxis_title="Laycan Loading Date", yaxis_title="Physical Spot Rate ($/MT)",
