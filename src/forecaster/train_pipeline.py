@@ -35,8 +35,18 @@ from src.forecaster.write_forecast import (
 )
 
 DEFAULT_DATA_PATH = os.path.join("data", "processed", "merged_market_data.csv")
-DEFAULT_MODEL_DIR = "models"
 DEFAULT_FORECAST_PATH = os.path.join("data", "interim", "freight_forecast_30d.json")
+
+def _next_version(model_dir: str) -> str:
+    """Auto-increment model version: v001, v002, ..."""
+    existing = [
+        d for d in os.listdir(model_dir)
+        if os.path.isdir(os.path.join(model_dir, d)) and d.startswith("v")
+    ]
+    if existing:
+        latest_num = max(int(v[1:]) for v in existing)
+        return f"v{latest_num + 1:03d}"
+    return "v001"
 
 
 def run_training_pipeline(
@@ -101,7 +111,11 @@ def run_training_pipeline(
         # Fallback: use the last known fitted value
         X_test["arima_pred"] = arima_fitted_train[-1] if len(arima_fitted_train) else 0.0
 
-    arima_path = os.path.join(model_dir, "arima_baseline.joblib")
+    version = _next_version(model_dir)
+    versioned_dir = os.path.join(model_dir, version)
+    os.makedirs(versioned_dir, exist_ok=True)
+
+    arima_path = os.path.join(versioned_dir, "arima_baseline.joblib")
     arima_model.save(arima_path)
 
     # ── 5. Train LightGBM Multi-Step Quantile Regressors on TRAIN only ──────
@@ -114,8 +128,8 @@ def run_training_pipeline(
     )
     forecaster.train(X_train, y_train)
 
-    model_save_path = os.path.join(model_dir, "quantile_forecaster.joblib")
-    forecaster.save(model_save_path)
+    model_save_path = os.path.join(versioned_dir, "quantile_forecaster.joblib")
+    forecaster.save(versioned_dir)
 
     # ── 5b. Compute Out-of-Sample (OOS) Evaluation Metrics ──────────────────
     print("Computing out-of-sample evaluation metrics on held-out 20%...")
@@ -141,7 +155,7 @@ def run_training_pipeline(
         print(f"OOS MAE: {oos_metrics['mae']:.4f} | RMSE: {oos_metrics['rmse']:.4f} | DA: {da:.1f}%")
 
     # ── 6. Compute and export SHAP explainability artifact ─────────────────
-    shap_json_path = os.path.join(model_dir, "shap_summary.json")
+    shap_json_path = os.path.join(versioned_dir, "shap_summary.json")
     latest_row = X_train.iloc[[-1]]  # use last training row for SHAP baseline
 
     # Extract the median (alpha=0.5) model for representative SHAP attributions
@@ -179,6 +193,27 @@ def run_training_pipeline(
     print(f"Contract JSON successfully written to: {written_path}")
     print(f"Enriched Excel workbook written to: {excel_path}")
     print(f"CSV export written to: {csv_path}")
+
+    # Write metadata for audit trail
+    import json
+    metadata = {
+        "version": version,
+        "trained_at": datetime.utcnow().isoformat(),
+        "training_samples": len(X_train),
+        "test_samples": len(X_test),
+        "feature_count": X_train.shape[1],
+        "oos_metrics": oos_metrics,
+        "arima_order": list(arima_model.get_order()),
+        "lgb_params": {
+            "n_estimators": n_estimators,
+            "learning_rate": learning_rate,
+        },
+    }
+    with open(os.path.join(versioned_dir, "metadata.json"), "w") as f:
+        json.dump(metadata, f, indent=2)
+
+    with open(os.path.join(model_dir, "latest_version.txt"), "w") as f:
+        f.write(version)
 
     return {
         "status": "Success",
