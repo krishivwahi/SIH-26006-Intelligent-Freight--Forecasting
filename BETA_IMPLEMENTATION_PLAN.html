@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VarunSetu — Beta Round Implementation Plan | SIH 2026</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --navy: #0a192f;
+            --navy-light: #112240;
+            --teal: #64ffda;
+            --teal-dark: #0d9488;
+            --amber: #ffd700;
+            --red: #ef4444;
+            --green: #22c55e;
+            --blue: #3b82f6;
+            --purple: #a855f7;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border: #e2e8f0;
+            --bg-light: #f8fafc;
+            --bg-card: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+            background: #ffffff;
+            font-size: 11px;
+        }
+
+        @media print {
+            body { font-size: 10px; }
+            .page-break { page-break-before: always; }
+            .no-break { page-break-inside: avoid; }
+            @page { margin: 12mm 15mm; size: A4; }
+            .cover-page { min-height: 100vh; }
+        }
+
+        /* ── Cover Page ─────────────────────────────────── */
+        .cover-page {
+            background: linear-gradient(135deg, var(--navy) 0%, #1a365d 50%, var(--navy-light) 100%);
+            color: white;
+            padding: 60px 50px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cover-page::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            right: -100px;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(100, 255, 218, 0.08) 0%, transparent 70%);
+        }
+
+        .cover-page::after {
+            content: '';
+            position: absolute;
+            bottom: -150px;
+            left: -150px;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(100, 255, 218, 0.05) 0%, transparent 70%);
+        }
+
+        .cover-badge {
+            display: inline-block;
+            background: rgba(100, 255, 218, 0.15);
+            border: 1px solid rgba(100, 255, 218, 0.3);
+            color: var(--teal);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 30px;
+        }
+
+        .cover-title {
+            font-size: 48px;
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+
+        .cover-title span {
+            color: var(--teal);
+        }
+
+        .cover-subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            color: #94a3b8;
+            margin-bottom: 40px;
+            max-width: 600px;
+        }
+
+        .cover-meta {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 550px;
+            margin-top: 20px;
+        }
+
+        .cover-meta-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 16px 20px;
+        }
+
+        .cover-meta-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--teal);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .cover-meta-value {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .cover-footer {
+            position: absolute;
+            bottom: 40px;
+            left: 50px;
+            right: 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #64748b;
+            font-size: 11px;
+        }
+
+        /* ── Content Pages ─────────────────────────────── */
+        .content {
+            padding: 40px 50px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--navy);
+        }
+
+        .section-number {
+            background: var(--navy);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .section-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--navy);
+            letter-spacing: -0.5px;
+        }
+
+        h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--navy);
+            margin: 20px 0 10px 0;
+        }
+
+        h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 14px 0 8px 0;
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-size: 11px;
+        }
+
+        /* ── Tables ─────────────────────────────────────── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0 20px 0;
+            font-size: 10.5px;
+        }
+
+        thead th {
+            background: var(--navy);
+            color: white;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        thead th:first-child {
+            border-radius: 6px 0 0 0;
+        }
+
+        thead th:last-child {
+            border-radius: 0 6px 0 0;
+        }
+
+        tbody td {
+            padding: 7px 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        tbody tr:nth-child(even) {
+            background: var(--bg-light);
+        }
+
+        tbody tr:hover {
+            background: #eef2ff;
+        }
+
+        /* ── Alert Boxes ───────────────────────────────── */
+        .alert {
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin: 14px 0;
+            font-size: 11px;
+        }
+
+        .alert-critical {
+            background: #fef2f2;
+            border-left: 4px solid var(--red);
+            color: #991b1b;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            border-left: 4px solid var(--amber);
+            color: #92400e;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            border-left: 4px solid var(--green);
+            color: #166534;
+        }
+
+        .alert-info {
+            background: #eff6ff;
+            border-left: 4px solid var(--blue);
+            color: #1e40af;
+        }
+
+        .alert-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        /* ── Person Cards ──────────────────────────────── */
+        .person-card {
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin: 16px 0;
+            background: var(--bg-card);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .person-card-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .person-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .person-info h4 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .person-info .role {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .person-priority {
+            margin-left: auto;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .priority-critical {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .priority-high {
+            background: #fffbeb;
+            color: #d97706;
+            border: 1px solid #fde68a;
+        }
+
+        .priority-medium {
+            background: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .task-list li {
+            padding: 6px 0 6px 24px;
+            position: relative;
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .task-list li::before {
+            content: '▸';
+            position: absolute;
+            left: 8px;
+            color: var(--teal-dark);
+            font-weight: 700;
+        }
+
+        .task-list .file-ref {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            background: #f1f5f9;
+            padding: 1px 6px;
+            border-radius: 4px;
+            color: var(--navy);
+        }
+
+        .day-badge {
+            display: inline-block;
+            background: var(--navy);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            margin-right: 6px;
+        }
+
+        .day-badge.freeze {
+            background: var(--red);
+        }
+
+        /* ── Sprint Timeline ───────────────────────────── */
+        .sprint-grid {
+            display: grid;
+            grid-template-columns: 70px 1fr;
+            gap: 0;
+            margin: 16px 0;
+        }
+
+        .sprint-day {
+            background: var(--navy);
+            color: white;
+            padding: 10px 12px;
+            font-weight: 700;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sprint-day .date {
+            font-size: 9px;
+            font-weight: 400;
+            color: var(--teal);
+            margin-top: 2px;
+        }
+
+        .sprint-tasks {
+            border: 1px solid var(--border);
+            border-left: none;
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border);
+            font-size: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .sprint-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        /* ── Utilities ─────────────────────────────────── */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        .tag-new {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .tag-modify {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .tag-delete {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 12px 0;
+        }
+
+        .metric-card {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--navy);
+        }
+
+        .metric-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 24px 0;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- COVER PAGE                                                         -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="cover-page">
+    <div class="cover-badge">SIH 2026 · Problem 26006 · Beta Round</div>
+    <h1 class="cover-title">
+        <span>VarunSetu</span><br>
+        Beta Implementation Plan
+    </h1>
+    <p class="cover-subtitle">
+        Intelligent Freight Forecasting Model for Optimized Vessel Chartering and Bulk Cargo Procurement — Ministry of Steel, Government of India
+    </p>
+
+    <div class="cover-meta">
+        <div class="cover-meta-item">
+            <div class="cover-meta-label">Sprint Duration</div>
+            <div class="cover-meta-value">8 Days · Sept 23–30</div>
+        </div>
+        <div class="cover-meta-item">
+            <div class="cover-meta-label">Team Size</div>
+            <div class="cover-meta-value">6 Members</div>
+        </div>
+        <div class="cover-meta-item">
+            <div class="cover-meta-label">Code Freeze</div>
+            <div class="cover-meta-value">Sept 28 · Evening</div>
+        </div>
+        <div class="cover-meta-item">
+            <div class="cover-meta-label">Budget</div>
+            <div class="cover-meta-value">$50 (~₹4,200)</div>
+        </div>
+    </div>
+
+    <div class="cover-footer">
+        <span>Confidential — Team VarunSetu</span>
+        <span>Generated: 22 September 2026</span>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 2: JUDGE FEEDBACK + STRATEGY                                  -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+    <div class="section-header">
+        <div class="section-number">1</div>
+        <h2 class="section-title">Alpha Judge Feedback & Beta Strategy</h2>
+    </div>
+
+    <div class="alert alert-critical">
+        <div class="alert-title">⚠ Critical Feedback From Alpha Round</div>
+        The judges identified three fundamental weaknesses that we must address to win the Beta round.
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:22%">Judge Criticism</th>
+                <th style="width:35%">Root Cause</th>
+                <th style="width:43%">Our Fix in Beta</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong style="color:#dc2626">"Model accuracy is bad"</strong></td>
+                <td>Training on synthetic BDI data (Ornstein-Uhlenbeck random walk). LightGBM learns noise patterns, not real freight market dynamics. Metrics look fine on synthetic data but are meaningless.</td>
+                <td>
+                    <strong>1.</strong> Acquire real Baltic Dry Index via Quandl ($50)<br>
+                    <strong>2.</strong> CEEMDAN signal decomposition (Paper 4)<br>
+                    <strong>3.</strong> Bayesian hyperparameter optimization (Optuna)<br>
+                    <strong>4.</strong> Walk-forward cross-validation (not naive 80/20)
+                </td>
+            </tr>
+            <tr>
+                <td><strong style="color:#dc2626">"Entire thing is AI-generated"</strong></td>
+                <td>Streamlit's templated UI, generic CSS, boilerplate code structure. Every element screams "generated by an LLM."</td>
+                <td>
+                    <strong>1.</strong> Drop Streamlit entirely<br>
+                    <strong>2.</strong> Build custom React/Next.js dashboard<br>
+                    <strong>3.</strong> Hand-crafted design system (navy/teal/dark mode)<br>
+                    <strong>4.</strong> Original interaction patterns, not templates
+                </td>
+            </tr>
+            <tr>
+                <td><strong style="color:#dc2626">"Lacks polish and depth"</strong></td>
+                <td>Missing route map, weak explainability visuals, no calibration proof, solver doesn't model advance vs spot chartering.</td>
+                <td>
+                    <strong>1.</strong> Interactive world map with animated route arcs<br>
+                    <strong>2.</strong> Advance/Spot charter modeling in solver<br>
+                    <strong>3.</strong> Forecasted bunker cost (not static)<br>
+                    <strong>4.</strong> Prediction interval calibration diagram
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="metric-grid">
+        <div class="metric-card">
+            <div class="metric-value">8</div>
+            <div class="metric-label">Days Available</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">6</div>
+            <div class="metric-label">Parallel Workstreams</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">₹4,200</div>
+            <div class="metric-label">Total Budget</div>
+        </div>
+    </div>
+
+    <h3>Key Decisions (Locked)</h3>
+    <table>
+        <thead>
+            <tr><th>Decision</th><th>Answer</th><th>Rationale</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Real data source</td>
+                <td><strong>Quandl/Nasdaq Data Link</strong></td>
+                <td>$50/month, instant API, daily BDI + sub-indices, 10+ years</td>
+            </tr>
+            <tr>
+                <td>Frontend framework</td>
+                <td><strong>React / Next.js 14</strong></td>
+                <td>Custom premium UI, SSR, no Streamlit visual signatures</td>
+            </tr>
+            <tr>
+                <td>Backend API</td>
+                <td><strong>FastAPI (Python)</strong></td>
+                <td>REST API serving solver/forecaster; replaces direct Streamlit-Python coupling</td>
+            </tr>
+            <tr>
+                <td>Code freeze</td>
+                <td><strong>Sept 28 evening</strong></td>
+                <td>2-day buffer for testing, Docker, and pitch rehearsal</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 3: WORKSTREAM OVERVIEW                                        -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+    <div class="section-header">
+        <div class="section-number">2</div>
+        <h2 class="section-title">Workstream Overview</h2>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:5%">WS</th>
+                <th style="width:30%">Workstream</th>
+                <th style="width:20%">Owner</th>
+                <th style="width:10%">Days</th>
+                <th style="width:10%">Priority</th>
+                <th style="width:25%">Addresses</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>1</strong></td>
+                <td><strong>Real Data Acquisition & Model Accuracy</strong></td>
+                <td>Tech Lead 1</td>
+                <td>Days 1–6</td>
+                <td><span class="tag priority-critical" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">CRITICAL</span></td>
+                <td>"Model accuracy is bad"</td>
+            </tr>
+            <tr>
+                <td><strong>2</strong></td>
+                <td><strong>Frontend Overhaul (React / Next.js)</strong></td>
+                <td>Tech Lead 2 + Researcher 3</td>
+                <td>Days 1–6</td>
+                <td><span class="tag priority-critical" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">CRITICAL</span></td>
+                <td>"AI-generated feel"</td>
+            </tr>
+            <tr>
+                <td><strong>3</strong></td>
+                <td><strong>Forecasting Upgrades (CEEMDAN + Optuna + Bunker)</strong></td>
+                <td>Researcher 1</td>
+                <td>Days 1–5</td>
+                <td><span class="tag priority-high" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;">HIGH</span></td>
+                <td>Forecast accuracy depth</td>
+            </tr>
+            <tr>
+                <td><strong>4</strong></td>
+                <td><strong>Solver & Domain Upgrades</strong></td>
+                <td>Researcher 2</td>
+                <td>Days 1–5</td>
+                <td><span class="tag priority-high" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;">HIGH</span></td>
+                <td>Solver differentiation</td>
+            </tr>
+            <tr>
+                <td><strong>5</strong></td>
+                <td><strong>Pitch, PPT & Knowledge Mastery</strong></td>
+                <td>Orator</td>
+                <td>Days 1–8</td>
+                <td><span class="tag priority-high" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;">HIGH</span></td>
+                <td>Presentation & defense</td>
+            </tr>
+            <tr>
+                <td><strong>6</strong></td>
+                <td><strong>Infrastructure (FastAPI + Docker + CI)</strong></td>
+                <td>Researcher 3 (parallel with WS-2)</td>
+                <td>Days 1–4</td>
+                <td><span class="tag priority-medium" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;">MEDIUM</span></td>
+                <td>Deployment & reliability</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="alert alert-info">
+        <div class="alert-title">🔗 Dependency Chain</div>
+        WS-6 (FastAPI) must produce API endpoints by Day 2 so WS-2 (Frontend) can connect. WS-1 (Real Data) must produce retrained models by Day 4 so WS-3 (CEEMDAN) can integrate. Everything converges Day 5 for integration testing.
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 4: TECH LEAD 1 — DETAILED ASSIGNMENT                         -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+    <div class="section-header">
+        <div class="section-number">3</div>
+        <h2 class="section-title">Individual Assignments</h2>
+    </div>
+
+    <!-- ── TECH LEAD 1 ─────────────────────────────────── -->
+    <div class="person-card no-break">
+        <div class="person-card-header">
+            <div class="person-avatar" style="background: linear-gradient(135deg, #dc2626, #991b1b);">TL1</div>
+            <div class="person-info">
+                <h4>Tech Lead 1 (Backend / ML)</h4>
+                <div class="role">WS-1: Real Data Acquisition & Model Accuracy</div>
+            </div>
+            <span class="person-priority priority-critical">🔴 CRITICAL</span>
+        </div>
+
+        <p><strong>Mission:</strong> Fix the #1 judge criticism. Replace synthetic BDI with real Baltic Exchange data, retrain all models, prove accuracy with honest out-of-sample metrics.</p>
+
+        <h4><span class="day-badge">Day 1</span> Sept 23 — Data Acquisition</h4>
+        <ul class="task-list">
+            <li>Sign up for <strong>Quandl / Nasdaq Data Link</strong> — purchase $50 plan for Baltic Exchange data</li>
+            <li>Download daily BDI (and BCI/BSI if available) — minimum 5 years (2019–2024)</li>
+            <li>Also register for <strong>Signal Ocean API</strong> free tier for route-level rates</li>
+            <li>Write <span class="file-ref">load_bdi(filepath)</span> function in <span class="file-ref">src/data/load_real_data.py</span></li>
+            <li>Validate date ranges, missing values, outliers. Document data quality in a summary file.</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 2</span> Sept 24 — Pipeline Integration & First Retrain</h4>
+        <ul class="task-list">
+            <li>Replace synthetic <code>freight_rate</code> column with real BDI/BCI in the merge pipeline</li>
+            <li>Update <span class="file-ref">src/data/feature_engineering.py</span>: add interaction features (<code>crude_oil × dxy</code>), regime z-score indicator</li>
+            <li>Run <span class="file-ref">train_pipeline.py</span> on real data — first accuracy checkpoint</li>
+            <li>Record initial MAE, RMSE, R², DA metrics. Compare vs Alpha synthetic metrics.</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 3</span> Sept 25 — Cross-Validation & Feature Upgrades</h4>
+        <ul class="task-list">
+            <li>Replace naive 80/20 split with <strong>expanding window walk-forward cross-validation</strong></li>
+            <li>Add prediction interval calibration check: "Does P10–P90 actually contain 80% of observations?"</li>
+            <li>Add Hurst exponent computation as a feature (long-memory indicator from Paper 1)</li>
+            <li>Integrate CEEMDAN features from WS-3 (Researcher 1) as they become available</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 4</span> Sept 26 — Final Training & Accuracy Report</h4>
+        <ul class="task-list">
+            <li>Final retrain incorporating all new features (real data + CEEMDAN + Hurst + interactions)</li>
+            <li>Generate comprehensive accuracy report: per-horizon-step MAE, cumulative DA, reliability diagram</li>
+            <li>Integrate optimized hyperparameters from WS-3 (Optuna results)</li>
+            <li>Integrate forecasted bunker cost from WS-3 into the solver pipeline</li>
+        </ul>
+
+        <h4><span class="day-badge freeze">Day 5</span> Sept 27 — MODEL FREEZE</h4>
+        <ul class="task-list">
+            <li><strong>Model freeze:</strong> No more changes to model weights or training pipeline</li>
+            <li>Serialize final models to <span class="file-ref">models/</span> directory</li>
+            <li>Run end-to-end integration test: real data → forecast → solver → API → UI</li>
+            <li>Generate final forecast JSON for Docker image pre-baking</li>
+        </ul>
+
+        <h4><span class="day-badge freeze">Day 6</span> Sept 28 — CODE FREEZE</h4>
+        <ul class="task-list">
+            <li>Full end-to-end system test on clean environment</li>
+            <li>Docker container verification with pre-baked models</li>
+            <li>Document all accuracy metrics for the pitch deck (hand off to Orator)</li>
+        </ul>
+
+        <h4>Target Accuracy Metrics</h4>
+        <table>
+            <thead><tr><th>Metric</th><th>Alpha (Synthetic)</th><th>Beta Target</th></tr></thead>
+            <tbody>
+                <tr><td>Directional Accuracy</td><td>~50% (random)</td><td><strong>&gt; 70%</strong></td></tr>
+                <tr><td>MAE</td><td>Unknown</td><td><strong>&lt; 5% of mean BDI</strong></td></tr>
+                <tr><td>RMSE</td><td>Unknown</td><td><strong>&lt; 8% of mean BDI</strong></td></tr>
+                <tr><td>R²</td><td>Near 0 on real data</td><td><strong>&gt; 0.75</strong></td></tr>
+                <tr><td>P10–P90 Coverage</td><td>Uncalibrated</td><td><strong>~80% nominal</strong></td></tr>
+            </tbody>
+        </table>
+
+        <h4>Files to Create/Modify</h4>
+        <table>
+            <thead><tr><th>Action</th><th>File</th><th>Change</th></tr></thead>
+            <tbody>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>src/data/load_real_data.py</td><td>Add <code>load_bdi()</code> for Quandl BDI ingestion</td></tr>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>src/data/feature_engineering.py</td><td>Add interaction features, regime indicator, Hurst exponent</td></tr>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>src/forecaster/train_pipeline.py</td><td>Walk-forward CV, calibration check, real data path</td></tr>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>src/forecaster/write_forecast.py</td><td>Remove synthetic data dependency, use real BDI scale</td></tr>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>src/benchmarks/accuracy_report.py</td><td>Per-horizon-step accuracy, reliability diagrams</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 5: TECH LEAD 2 + RESEARCHER 3                                 -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+
+    <!-- ── TECH LEAD 2 ─────────────────────────────────── -->
+    <div class="person-card no-break">
+        <div class="person-card-header">
+            <div class="person-avatar" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">TL2</div>
+            <div class="person-info">
+                <h4>Tech Lead 2 (Solver / UI)</h4>
+                <div class="role">WS-2: Frontend Overhaul — React / Next.js Dashboard</div>
+            </div>
+            <span class="person-priority priority-critical">🔴 CRITICAL</span>
+        </div>
+
+        <p><strong>Mission:</strong> Replace Streamlit with a custom React/Next.js dashboard that looks hand-crafted and premium. No template aesthetics. Dark mode maritime professional theme.</p>
+
+        <h4><span class="day-badge">Day 1</span> Sept 23 — Scaffold & Design System</h4>
+        <ul class="task-list">
+            <li>Initialize Next.js 14 project with App Router: <code>npx create-next-app@latest</code></li>
+            <li>Set up Tailwind CSS v4 with custom design tokens (navy/teal/amber palette)</li>
+            <li>Install Framer Motion, Recharts (or Plotly.js), TanStack Query</li>
+            <li>Build the global layout: sidebar navigation, dark mode default, typography (Inter + JetBrains Mono)</li>
+            <li>Create reusable component library: Card, KPICard, Badge, Button, Slider, DataTable</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 2</span> Sept 24 — Command Center + Forecast Intelligence</h4>
+        <ul class="task-list">
+            <li><strong>Page 1 — Command Center:</strong> Top KPI bar, Decision Advisor banner, vessel assignment cards</li>
+            <li><strong>Page 2 — Forecast Intelligence:</strong> 30-day P10/P50/P90 forecast cone chart, per-route rate cards, volatility heatmap</li>
+            <li>Connect to FastAPI endpoints (<code>/api/solve</code>, <code>/api/forecast</code>) built by R3</li>
+            <li>Animate chart entry with Framer Motion</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 3</span> Sept 25 — What-If Simulator + Route Map</h4>
+        <ul class="task-list">
+            <li><strong>Page 3 — What-If Simulator:</strong> Three interactive sliders (λ, freight shock, VLSFO), before/after comparison, profit delta waterfall</li>
+            <li><strong>Page 4 — Route Intelligence:</strong> Leaflet/Mapbox world map with animated arc lines, port markers, country risk badges</li>
+            <li>Use port coordinates from R2's <span class="file-ref">src/data/port_coordinates.py</span></li>
+        </ul>
+
+        <h4><span class="day-badge">Day 4</span> Sept 26 — Model Audit + Backtesting</h4>
+        <ul class="task-list">
+            <li><strong>Page 5 — Model Audit:</strong> SHAP waterfall (interactive), global feature importance, prediction calibration diagram, accuracy metrics</li>
+            <li><strong>Page 6 — Backtesting Arena:</strong> Walk-forward cumulative savings curve, regime stress test cards, policy comparison table</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 5</span> Sept 27 — Polish & Animations</h4>
+        <ul class="task-list">
+            <li>Micro-animations: hover effects, page transitions, chart draw animations</li>
+            <li>Glassmorphism card effects: <code>backdrop-filter: blur(16px)</code></li>
+            <li>Responsive layout adjustments (demo will likely be on a laptop projector)</li>
+            <li>Remove any Streamlit visual signatures. No hamburger menus, no footer text.</li>
+        </ul>
+
+        <h4><span class="day-badge freeze">Day 6</span> Sept 28 — CODE FREEZE</h4>
+        <ul class="task-list">
+            <li>Edge case testing: empty data, solver infeasibility, API timeouts</li>
+            <li>Final visual review with team. Screenshot key pages for pitch deck.</li>
+        </ul>
+
+        <h4>Tech Stack</h4>
+        <table>
+            <thead><tr><th>Component</th><th>Technology</th></tr></thead>
+            <tbody>
+                <tr><td>Framework</td><td>Next.js 14 (App Router)</td></tr>
+                <tr><td>Styling</td><td>Tailwind CSS v4 + custom design tokens</td></tr>
+                <tr><td>Charts</td><td>Recharts or Plotly.js (client-side)</td></tr>
+                <tr><td>Maps</td><td>Leaflet.js or react-leaflet</td></tr>
+                <tr><td>Animations</td><td>Framer Motion</td></tr>
+                <tr><td>State</td><td>TanStack Query (React Query)</td></tr>
+                <tr><td>Typography</td><td>Inter (headings) + JetBrains Mono (data)</td></tr>
+            </tbody>
+        </table>
+
+        <h4>Design System</h4>
+        <table>
+            <thead><tr><th>Token</th><th>Value</th><th>Usage</th></tr></thead>
+            <tbody>
+                <tr><td>Navy Primary</td><td><code>#0a192f</code></td><td>Backgrounds, headers</td></tr>
+                <tr><td>Navy Light</td><td><code>#112240</code></td><td>Cards, elevated surfaces</td></tr>
+                <tr><td>Teal Accent</td><td><code>#64ffda</code></td><td>CTAs, highlights, active states</td></tr>
+                <tr><td>Amber Alert</td><td><code>#ffd700</code></td><td>Warnings, risk indicators</td></tr>
+                <tr><td>Body Font</td><td>Inter 400/500/600/700</td><td>All text</td></tr>
+                <tr><td>Mono Font</td><td>JetBrains Mono</td><td>Numbers, rates, codes</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 6: RESEARCHER 3                                               -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+
+    <!-- ── RESEARCHER 3 ────────────────────────────────── -->
+    <div class="person-card no-break">
+        <div class="person-card-header">
+            <div class="person-avatar" style="background: linear-gradient(135deg, #7c3aed, #5b21b6);">R3</div>
+            <div class="person-info">
+                <h4>Researcher 3 (Integration / Infrastructure)</h4>
+                <div class="role">WS-6 (Days 1–4): FastAPI + Docker + CI/CD &nbsp;|&nbsp; WS-2 (Days 1–6): Frontend co-dev with TL2</div>
+            </div>
+            <span class="person-priority priority-critical">🔴 CRITICAL</span>
+        </div>
+
+        <p><strong>Mission:</strong> Build the FastAPI backend that connects the Python ML/solver layer to the React frontend. Harden Docker for offline demo. Support TL2 on frontend pages.</p>
+
+        <h4><span class="day-badge">Day 1</span> Sept 23 — FastAPI Scaffold + Core Endpoints</h4>
+        <ul class="task-list">
+            <li>Create <span class="file-ref">src/api/main.py</span> — FastAPI app with CORS middleware</li>
+            <li>Implement endpoints:
+                <ul class="task-list">
+                    <li><code>POST /api/solve</code> — accepts λ, freight_shock, vlsfo_price; returns AssignmentResult</li>
+                    <li><code>GET /api/forecast</code> — returns current 30-day forecast JSON</li>
+                    <li><code>GET /api/shap</code> — returns SHAP explainability data</li>
+                    <li><code>GET /api/health</code> — liveness check for Docker</li>
+                </ul>
+            </li>
+            <li>Add <code>fastapi</code>, <code>uvicorn</code>, <code>python-multipart</code> to <span class="file-ref">requirements.txt</span></li>
+        </ul>
+
+        <h4><span class="day-badge">Day 2</span> Sept 24 — Extended API + Docker</h4>
+        <ul class="task-list">
+            <li>Implement remaining endpoints:
+                <ul class="task-list">
+                    <li><code>POST /api/scenario</code> — what-if scenario with delta vs baseline</li>
+                    <li><code>GET /api/benchmarks</code> — policy comparison (AI vs Naive vs Greedy)</li>
+                    <li><code>GET /api/walk-forward</code> — walk-forward simulation results</li>
+                    <li><code>GET /api/metrics</code> — model accuracy metrics</li>
+                </ul>
+            </li>
+            <li>Update <span class="file-ref">docker/Dockerfile</span>: multi-stage build, non-root user, health check</li>
+            <li>Create <span class="file-ref">docker-compose.yml</span>: api + frontend services</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 3</span> Sept 25 — CI/CD + Frontend Support</h4>
+        <ul class="task-list">
+            <li>Create <span class="file-ref">.github/workflows/ci.yml</span>: pytest, ruff lint, Docker build</li>
+            <li>Join TL2 on frontend development — build Route Map and What-If Simulator pages</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 4-6</span> Sept 26–28 — Integration + Polish</h4>
+        <ul class="task-list">
+            <li>Full API integration testing with React frontend</li>
+            <li>Docker offline verification (zero internet dependency)</li>
+            <li>Pre-bake model artifacts into Docker image</li>
+            <li>Help TL2 with remaining frontend pages</li>
+        </ul>
+
+        <h4>Files to Create/Modify</h4>
+        <table>
+            <thead><tr><th>Action</th><th>File</th><th>Change</th></tr></thead>
+            <tbody>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>src/api/main.py</td><td>FastAPI application with all REST endpoints</td></tr>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>src/api/schemas.py</td><td>Pydantic request/response models</td></tr>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>docker/Dockerfile</td><td>Multi-stage build, non-root, health check, model pre-baking</td></tr>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>docker-compose.yml</td><td>API + frontend services</td></tr>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>.github/workflows/ci.yml</td><td>Automated tests, lint, Docker build</td></tr>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>requirements.txt</td><td>Add fastapi, uvicorn, python-multipart</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── RESEARCHER 1 ────────────────────────────────── -->
+    <div class="person-card no-break">
+        <div class="person-card-header">
+            <div class="person-avatar" style="background: linear-gradient(135deg, #d97706, #92400e);">R1</div>
+            <div class="person-info">
+                <h4>Researcher 1 (Data / Forecasting)</h4>
+                <div class="role">WS-3: Forecasting Upgrades — CEEMDAN + Optuna + Bunker Forecaster</div>
+            </div>
+            <span class="person-priority priority-high">🟡 HIGH</span>
+        </div>
+
+        <p><strong>Mission:</strong> Implement the three forecasting upgrades from Research Papers 1 & 4 that will tangibly improve accuracy and give the team defensible talking points about methodology depth.</p>
+
+        <h4><span class="day-badge">Day 1</span> Sept 23 — Bayesian Hyperparameter Optimization</h4>
+        <ul class="task-list">
+            <li>Create <span class="file-ref">src/tuning/hyperparameter_search.py</span></li>
+            <li>Define search space: n_estimators [100,1000], learning_rate [0.01,0.3], num_leaves [15,127], min_child_samples [5,100], subsample [0.6,1.0], colsample_bytree [0.6,1.0], reg_alpha/lambda [0,10]</li>
+            <li>Objective: minimize pinball loss on expanding-window cross-validation</li>
+            <li>Run 200 trials with TPE sampler. Store results in <span class="file-ref">models/best_params.json</span></li>
+            <li>Add <code>optuna>=3.5</code> to requirements.txt</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 2</span> Sept 24 — CEEMDAN Signal Decomposition</h4>
+        <ul class="task-list">
+            <li>Create <span class="file-ref">src/data/signal_decomposition.py</span></li>
+            <li>Implement CEEMDAN decomposition of freight rate series into Intrinsic Mode Functions (IMFs)</li>
+            <li>Apply Gaussian filter to high-frequency IMFs for noise removal</li>
+            <li>Extract features: trend slope, volatility amplitude, dominant cycle period</li>
+            <li>Add <code>EMD-signal>=1.5</code> to requirements.txt</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 3</span> Sept 25 — Bunker Cost Forecaster</h4>
+        <ul class="task-list">
+            <li>Create <span class="file-ref">src/forecaster/bunker_forecaster.py</span></li>
+            <li>Train separate LightGBM model on IFO380 bunker fuel prices</li>
+            <li>Features: crude oil (Brent/WTI), DXY, GSCPI</li>
+            <li>Predict bunker cost 30 days forward</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 4</span> Sept 26 — Integration</h4>
+        <ul class="task-list">
+            <li>Integrate CEEMDAN features into the main LightGBM feature matrix</li>
+            <li>Integrate forecasted bunker cost into solver objective function</li>
+            <li>Benchmark: decomposed features vs current rolling features on the real BDI data</li>
+            <li>Hand off Optuna best params to TL1 for final retrain</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 5</span> Sept 27 — Tests & Documentation</h4>
+        <ul class="task-list">
+            <li>Write unit tests: <span class="file-ref">tests/test_hyperparameter_search.py</span>, <span class="file-ref">tests/test_signal_decomposition.py</span>, <span class="file-ref">tests/test_bunker_forecaster.py</span></li>
+            <li>Document methodology for pitch deck (CEEMDAN explanation, Optuna improvement %)</li>
+        </ul>
+
+        <h4>Files to Create/Modify</h4>
+        <table>
+            <thead><tr><th>Action</th><th>File</th><th>Change</th></tr></thead>
+            <tbody>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>src/tuning/hyperparameter_search.py</td><td>Optuna-based hyperparameter optimization</td></tr>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>src/data/signal_decomposition.py</td><td>CEEMDAN decomposition + Gaussian filter</td></tr>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>src/forecaster/bunker_forecaster.py</td><td>Bunker fuel price forecaster</td></tr>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>models/best_params.json</td><td>Optimized hyperparameters</td></tr>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>requirements.txt</td><td>Add optuna, EMD-signal</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 7: RESEARCHER 2 + ORATOR                                     -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+
+    <!-- ── RESEARCHER 2 ────────────────────────────────── -->
+    <div class="person-card no-break">
+        <div class="person-card-header">
+            <div class="person-avatar" style="background: linear-gradient(135deg, #059669, #065f46);">R2</div>
+            <div class="person-info">
+                <h4>Researcher 2 (Domain / Solver)</h4>
+                <div class="role">WS-4: Solver Upgrades — Advance/Spot Modeling + Route Map + Bug Fixes</div>
+            </div>
+            <span class="person-priority priority-high">🟡 HIGH</span>
+        </div>
+
+        <p><strong>Mission:</strong> Make the solver smarter by adding advance vs spot charter modeling, provide geographic visualization data, and fix all outstanding TODO items that judges could probe.</p>
+
+        <h4><span class="day-badge">Day 1</span> Sept 23 — Advance vs Spot Charter Modeling</h4>
+        <ul class="task-list">
+            <li>Add to <span class="file-ref">src/solver/parameters.py</span>: <code>SPOT_PREMIUM_PCT = 0.05</code>, <code>ADVANCE_DISCOUNT_PCT = 0.03</code></li>
+            <li>Modify <span class="file-ref">src/solver/solver.py</span>: add <code>charter_type</code> variable to MILP</li>
+            <li>Routes chartered days 1–7 = spot market rates (higher, uncertain)</li>
+            <li>Routes chartered days 8–30 = advance rates (lower, locked-in, discounted)</li>
+            <li>Expose spot premium as a parameter for the API/UI</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 2</span> Sept 24 — Port Coordinates + Route Map Data</h4>
+        <ul class="task-list">
+            <li>Create <span class="file-ref">src/data/port_coordinates.py</span>: lat/lng for all 14 ports</li>
+            <li>Origin ports: Hay Point, Dalrymple Bay, Newcastle, Gladstone (AU), Hampton Roads, Norfolk, Baltimore (US), Vancouver, Prince Rupert, Roberts Bank (CA)</li>
+            <li>Destination ports: Visakhapatnam, Paradip, Haldia, Gangavaram (India)</li>
+            <li>GeoJSON arc data structure for Leaflet rendering</li>
+            <li>Add API endpoint for route geography data</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 3</span> Sept 25 — Outstanding Bug Fixes</h4>
+        <ul class="task-list">
+            <li><strong>V-001 idle:</strong> Add explicit "Fleet Reserve — below cargo floor" status with explanation in API response</li>
+            <li><strong>date.today() risk:</strong> Pin <code>base_date</code> once per API request via a parameter</li>
+            <li><strong>HORIZON_DAYS duplication:</strong> Single source of truth in <code>parameters.py</code>, import everywhere</li>
+            <li><strong>Rate range validation:</strong> Add <code>_validate_rates()</code> sanity band check in solver</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 4-5</span> Sept 26–27 — Integration & Testing</h4>
+        <ul class="task-list">
+            <li>Integration test: solver with advance/spot modeling produces different assignments than baseline</li>
+            <li>Verify route map data renders correctly in TL2's frontend</li>
+            <li>Write unit tests for all solver changes</li>
+            <li>Update solver docstrings and AGENT_CONTEXT.md with advance/spot formulation</li>
+        </ul>
+
+        <h4>Files to Create/Modify</h4>
+        <table>
+            <thead><tr><th>Action</th><th>File</th><th>Change</th></tr></thead>
+            <tbody>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>src/solver/parameters.py</td><td>Add spot/advance premium parameters</td></tr>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>src/solver/solver.py</td><td>Add charter_type variable, advance/spot rate logic</td></tr>
+                <tr><td><span class="tag tag-new">NEW</span></td><td>src/data/port_coordinates.py</td><td>Lat/lng for all ports, GeoJSON arcs</td></tr>
+                <tr><td><span class="tag tag-modify">MODIFY</span></td><td>src/solver/solver.py</td><td>Fix V-001, date pinning, rate validation, HORIZON_DAYS</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── ORATOR ──────────────────────────────────────── -->
+    <div class="person-card no-break">
+        <div class="person-card-header">
+            <div class="person-avatar" style="background: linear-gradient(135deg, #e11d48, #9f1239);">OR</div>
+            <div class="person-info">
+                <h4>Orator (Pitch Lead)</h4>
+                <div class="role">WS-5: Pitch Deck, Documentation & Knowledge Mastery</div>
+            </div>
+            <span class="person-priority priority-high">🟡 HIGH</span>
+        </div>
+
+        <p><strong>Mission:</strong> Rebuild the pitch to directly counter every judge criticism. Ensure every team member can explain the math, the architecture, and the business case under pressure. Win the Q&A.</p>
+
+        <h4><span class="day-badge">Day 1–2</span> Sept 23–24 — PPT Restructure</h4>
+        <ul class="task-list">
+            <li><strong>New slide:</strong> "Alpha → Beta: What We Fixed and Why" — directly addresses judge feedback</li>
+            <li><strong>New slide:</strong> "Real Data, Real Accuracy" — show Quandl BDI data, compare synthetic vs real metrics</li>
+            <li><strong>Updated slide:</strong> Architecture diagram — React frontend + FastAPI backend + ML pipeline</li>
+            <li><strong>Updated slide:</strong> Remove all mentions of "synthetic data" if real BDI is acquired</li>
+            <li>Update all screenshots once TL2 has initial pages (Day 3+)</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 3</span> Sept 25 — Technical Depth Slides</h4>
+        <ul class="task-list">
+            <li><strong>New slide:</strong> CEEMDAN Signal Decomposition — diagram showing IMF extraction from raw BDI</li>
+            <li><strong>New slide:</strong> Bayesian Optimization — Optuna hyperparameter search improvement plot</li>
+            <li><strong>New slide:</strong> Advance vs Spot Charter Decision — explain the modeling and its business impact</li>
+            <li><strong>New slide:</strong> Model Accuracy Dashboard — MAE, RMSE, DA, R² with visual charts</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 4</span> Sept 26 — First Pitch Rehearsal</h4>
+        <ul class="task-list">
+            <li>Run full 2-minute pitch with live demo choreography</li>
+            <li>Time every section. Identify weak spots. Record and review.</li>
+            <li>Prepare Q&A flash cards for all 6 team members</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 5</span> Sept 27 — Q&A Defense Prep</h4>
+        <ul class="task-list">
+            <li>Practice top 15 tough judge questions with the entire team</li>
+            <li>Special focus: "Is this real data?", "What's your out-of-sample R²?", "Show me the CEEMDAN decomposition", "How is advance vs spot chartering modeled?"</li>
+            <li>Each team member must be able to explain: quantile regression, MILP formulation, SHAP, CEEMDAN</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 6</span> Sept 28 — Full Team Rehearsal</h4>
+        <ul class="task-list">
+            <li>Full dress rehearsal with final UI screenshots in PPT</li>
+            <li>Live demo run-through: check every slider, every chart, every page</li>
+            <li>Backup plan if any component fails during live demo</li>
+        </ul>
+
+        <h4><span class="day-badge">Day 7</span> Sept 29 — Final Rehearsal</h4>
+        <ul class="task-list">
+            <li>Full rehearsal. No code changes. Only narrative polish.</li>
+            <li>Ensure Docker container is bootable and demo-ready offline.</li>
+        </ul>
+
+        <h4>Key Narrative Shifts (Alpha → Beta)</h4>
+        <table>
+            <thead><tr><th>Alpha Narrative</th><th>Beta Narrative</th></tr></thead>
+            <tbody>
+                <tr><td>"We use a calibrated synthetic BDI proxy"</td><td>"We train on <strong>real Baltic Dry Index data</strong> from Quandl"</td></tr>
+                <tr><td>"Streamlit dashboard with interactive sliders"</td><td>"Custom-built React dashboard with <strong>route intelligence maps</strong>"</td></tr>
+                <tr><td>"Single-stage deterministic assignment"</td><td>"<strong>Advance vs Spot charter modeling</strong> with rate premiums"</td></tr>
+                <tr><td>"LightGBM with default hyperparameters"</td><td>"<strong>CEEMDAN decomposition + Bayesian-optimized</strong> LightGBM"</td></tr>
+                <tr><td>"Static bunker fuel cost"</td><td>"<strong>Forecasted bunker cost</strong> feeding the solver objective"</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 8: SPRINT TIMELINE                                            -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+    <div class="section-header">
+        <div class="section-number">4</div>
+        <h2 class="section-title">8-Day Sprint Timeline</h2>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:4%">Day</th>
+                <th style="width:8%">Date</th>
+                <th style="width:18%">TL1 (Data/ML)</th>
+                <th style="width:18%">TL2 + R3 (Frontend)</th>
+                <th style="width:16%">R1 (Forecasting)</th>
+                <th style="width:16%">R2 (Solver)</th>
+                <th style="width:14%">Orator (Pitch)</th>
+                <th style="width:6%">R3 (Infra)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>1</strong></td>
+                <td>Sep 23</td>
+                <td>Sign up Quandl, download BDI, <code>load_bdi()</code></td>
+                <td>Next.js scaffold + design system</td>
+                <td>Optuna search space + integration</td>
+                <td>Advance/Spot params + solver</td>
+                <td>PPT restructure</td>
+                <td>FastAPI scaffold + endpoints</td>
+            </tr>
+            <tr>
+                <td><strong>2</strong></td>
+                <td>Sep 24</td>
+                <td>Merge pipeline, retrain on real data</td>
+                <td>Command Center + Forecast pages</td>
+                <td>CEEMDAN decomposition + features</td>
+                <td>Port coordinates + route map data</td>
+                <td>Architecture + "What We Fixed" slides</td>
+                <td>Docker multi-stage + CI</td>
+            </tr>
+            <tr>
+                <td><strong>3</strong></td>
+                <td>Sep 25</td>
+                <td>Walk-forward CV, calibration, features</td>
+                <td>What-If Simulator + Route Map page</td>
+                <td>Bunker cost forecaster</td>
+                <td>TODO fixes (V-001, date, validation)</td>
+                <td>Technical depth slides (CEEMDAN, BO)</td>
+                <td>API integration</td>
+            </tr>
+            <tr>
+                <td><strong>4</strong></td>
+                <td>Sep 26</td>
+                <td>Final retrain, accuracy report</td>
+                <td>Model Audit + Backtesting pages</td>
+                <td>Bunker → solver integration</td>
+                <td>Integration tests</td>
+                <td style="color:#d97706"><strong>Pitch rehearsal v1</strong></td>
+                <td>Full Docker test</td>
+            </tr>
+            <tr style="background:#fef2f2;">
+                <td><strong>5</strong></td>
+                <td>Sep 27</td>
+                <td style="color:#dc2626"><strong>MODEL FREEZE</strong><br>Integration testing</td>
+                <td>Polish: animations, dark mode</td>
+                <td>Integration tests</td>
+                <td>Bug fixes</td>
+                <td>Q&A defense prep</td>
+                <td>—</td>
+            </tr>
+            <tr style="background:#fef2f2;">
+                <td><strong>6</strong></td>
+                <td>Sep 28</td>
+                <td style="color:#dc2626"><strong>CODE FREEZE</strong><br>System test</td>
+                <td style="color:#dc2626"><strong>CODE FREEZE</strong><br>Final polish</td>
+                <td>Bug fixes, docs</td>
+                <td>Bug fixes, docs</td>
+                <td style="color:#dc2626"><strong>Full team rehearsal</strong></td>
+                <td>Offline verify</td>
+            </tr>
+            <tr style="background:#f0fdf4;">
+                <td><strong>7</strong></td>
+                <td>Sep 29</td>
+                <td>Docker verify, backups</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td style="color:#059669"><strong>Final full rehearsal</strong></td>
+                <td>—</td>
+            </tr>
+            <tr style="background:#dcfce7;">
+                <td><strong>8</strong></td>
+                <td>Sep 30</td>
+                <td colspan="6" style="text-align:center; font-size:16px; font-weight:900; color:#059669; padding:16px;">🏆 SUBMISSION DAY</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="alert alert-warning">
+        <div class="alert-title">⚡ Critical Milestones (Non-Negotiable)</div>
+        <strong>Day 2 (Sep 24):</strong> FastAPI endpoints must be working so frontend can connect.<br>
+        <strong>Day 4 (Sep 26):</strong> All new features (CEEMDAN, Optuna, Advance/Spot, Bunker) must be integrated.<br>
+        <strong>Day 5 (Sep 27):</strong> MODEL FREEZE — no more changes to trained model weights.<br>
+        <strong>Day 6 (Sep 28):</strong> CODE FREEZE — only bug fixes allowed after this point.
+    </div>
+
+    <h3>End-of-Day Sync Protocol</h3>
+    <p>Every evening at <strong>9 PM IST</strong>, all 6 members report status in the team group:</p>
+    <table>
+        <thead><tr><th>Field</th><th>Format</th></tr></thead>
+        <tbody>
+            <tr><td>Done today</td><td>Bullet list of completed items</td></tr>
+            <tr><td>Blocked on</td><td>Dependencies from other workstreams (tag the person)</td></tr>
+            <tr><td>Tomorrow plan</td><td>Top 3 priorities for next day</td></tr>
+            <tr><td>Risk flag</td><td>🟢 On track / 🟡 Minor risk / 🔴 Behind schedule</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 9: NEW FILES + DEPENDENCY MAP                                  -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+    <div class="section-header">
+        <div class="section-number">5</div>
+        <h2 class="section-title">Complete File Change Map</h2>
+    </div>
+
+    <h3>New Files to Create</h3>
+    <table>
+        <thead>
+            <tr><th>File</th><th>Owner</th><th>Day</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td class="mono">src/api/main.py</td><td>R3</td><td>1</td><td>FastAPI application with all REST endpoints</td></tr>
+            <tr><td class="mono">src/api/schemas.py</td><td>R3</td><td>1</td><td>Pydantic request/response models</td></tr>
+            <tr><td class="mono">src/tuning/hyperparameter_search.py</td><td>R1</td><td>1</td><td>Optuna-based Bayesian optimization</td></tr>
+            <tr><td class="mono">src/data/signal_decomposition.py</td><td>R1</td><td>2</td><td>CEEMDAN signal decomposition + Gaussian filter</td></tr>
+            <tr><td class="mono">src/forecaster/bunker_forecaster.py</td><td>R1</td><td>3</td><td>LightGBM bunker fuel price forecaster</td></tr>
+            <tr><td class="mono">src/data/port_coordinates.py</td><td>R2</td><td>2</td><td>Lat/lng for all ports + GeoJSON arcs</td></tr>
+            <tr><td class="mono">src/benchmarks/accuracy_report.py</td><td>TL1</td><td>4</td><td>Per-horizon accuracy metrics + reliability diagram</td></tr>
+            <tr><td class="mono">models/best_params.json</td><td>R1</td><td>1</td><td>Optimized hyperparameters from Optuna</td></tr>
+            <tr><td class="mono">docker-compose.yml</td><td>R3</td><td>2</td><td>API + frontend Docker services</td></tr>
+            <tr><td class="mono">.github/workflows/ci.yml</td><td>R3</td><td>3</td><td>CI/CD: pytest, ruff, Docker build</td></tr>
+            <tr><td class="mono">frontend/</td><td>TL2</td><td>1</td><td>Entire Next.js 14 application</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Existing Files to Modify</h3>
+    <table>
+        <thead>
+            <tr><th>File</th><th>Owner</th><th>Day</th><th>Change</th></tr>
+        </thead>
+        <tbody>
+            <tr><td class="mono">src/data/load_real_data.py</td><td>TL1</td><td>1</td><td>Add load_bdi() for Quandl BDI ingestion</td></tr>
+            <tr><td class="mono">src/data/feature_engineering.py</td><td>TL1</td><td>2-3</td><td>Interaction features, regime indicator, Hurst exponent</td></tr>
+            <tr><td class="mono">src/forecaster/train_pipeline.py</td><td>TL1</td><td>2-4</td><td>Walk-forward CV, calibration check, real data</td></tr>
+            <tr><td class="mono">src/forecaster/write_forecast.py</td><td>TL1</td><td>3</td><td>Remove synthetic data reliance, real BDI scale</td></tr>
+            <tr><td class="mono">src/solver/parameters.py</td><td>R2</td><td>1</td><td>Add spot/advance premium parameters</td></tr>
+            <tr><td class="mono">src/solver/solver.py</td><td>R2</td><td>1, 3</td><td>Charter type variable; V-001, date, validation fixes</td></tr>
+            <tr><td class="mono">docker/Dockerfile</td><td>R3</td><td>2</td><td>Multi-stage, non-root, health check, model pre-bake</td></tr>
+            <tr><td class="mono">requirements.txt</td><td>R1/R3</td><td>1</td><td>Add optuna, EMD-signal, fastapi, uvicorn</td></tr>
+            <tr><td class="mono">AGENT_CONTEXT.md</td><td>Orator</td><td>6</td><td>Update to reflect Beta scope and completed features</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Files to Deprecate</h3>
+    <table>
+        <thead>
+            <tr><th>File</th><th>Reason</th></tr>
+        </thead>
+        <tbody>
+            <tr><td class="mono">src/ui/app.py</td><td>Replaced by React/Next.js frontend</td></tr>
+            <tr><td class="mono">dummy_generator.py</td><td>Replaced by real BDI data pipeline</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Updated requirements.txt (Beta)</h3>
+    <table>
+        <thead><tr><th>Package</th><th>Version</th><th>Purpose</th><th>Added by</th></tr></thead>
+        <tbody>
+            <tr><td class="mono">optuna</td><td>>=3.5</td><td>Bayesian hyperparameter optimization</td><td>R1</td></tr>
+            <tr><td class="mono">EMD-signal</td><td>>=1.5</td><td>CEEMDAN signal decomposition</td><td>R1</td></tr>
+            <tr><td class="mono">fastapi</td><td>>=0.110</td><td>REST API backend</td><td>R3</td></tr>
+            <tr><td class="mono">uvicorn[standard]</td><td>>=0.27</td><td>ASGI server for FastAPI</td><td>R3</td></tr>
+            <tr><td class="mono">python-multipart</td><td>>=0.0.7</td><td>FastAPI form data support</td><td>R3</td></tr>
+            <tr><td class="mono">nasdaq-data-link</td><td>>=1.0</td><td>Quandl/Nasdaq BDI data API</td><td>TL1</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 10: VERIFICATION + COST                                       -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+    <div class="section-header">
+        <div class="section-number">6</div>
+        <h2 class="section-title">Verification Plan & Budget</h2>
+    </div>
+
+    <h3>Automated Tests</h3>
+    <table>
+        <thead><tr><th>Command</th><th>What It Verifies</th><th>Must Pass By</th></tr></thead>
+        <tbody>
+            <tr><td class="mono">pytest tests/ -v --tb=short</td><td>All existing 205 tests still pass</td><td>Day 5 (Sep 27)</td></tr>
+            <tr><td class="mono">pytest tests/test_hyperparameter_search.py</td><td>Optuna search runs and produces valid params</td><td>Day 4 (Sep 26)</td></tr>
+            <tr><td class="mono">pytest tests/test_signal_decomposition.py</td><td>CEEMDAN produces valid IMFs</td><td>Day 4 (Sep 26)</td></tr>
+            <tr><td class="mono">pytest tests/test_bunker_forecaster.py</td><td>Bunker model trains and predicts</td><td>Day 4 (Sep 26)</td></tr>
+            <tr><td class="mono">pytest tests/test_api.py</td><td>All FastAPI endpoints respond correctly</td><td>Day 4 (Sep 26)</td></tr>
+            <tr><td class="mono">python -m src.benchmarks.accuracy_report</td><td>Model accuracy meets Beta targets</td><td>Day 5 (Sep 27)</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Manual Verification Checklist</h3>
+    <table>
+        <thead><tr><th>#</th><th>Check</th><th>Owner</th><th>By</th></tr></thead>
+        <tbody>
+            <tr><td>1</td><td>React dashboard loads on localhost, all 6 pages render</td><td>TL2</td><td>Day 5</td></tr>
+            <tr><td>2</td><td>Solver responds in &lt; 100ms via FastAPI</td><td>R3</td><td>Day 4</td></tr>
+            <tr><td>3</td><td>Route map renders animated arcs from origin → destination</td><td>TL2</td><td>Day 4</td></tr>
+            <tr><td>4</td><td>What-if slider triggers real-time re-solve and updates charts</td><td>TL2</td><td>Day 4</td></tr>
+            <tr><td>5</td><td>SHAP waterfall renders per-assignment</td><td>TL2</td><td>Day 5</td></tr>
+            <tr><td>6</td><td>Walk-forward backtest shows cumulative savings curve</td><td>TL2</td><td>Day 5</td></tr>
+            <tr><td>7</td><td>Docker container boots and runs offline (zero internet)</td><td>R3</td><td>Day 6</td></tr>
+            <tr><td>8</td><td>Full pitch run-through: every team member explains their workstream</td><td>Orator</td><td>Day 7</td></tr>
+            <tr><td>9</td><td>Advance vs Spot chartering produces different assignments</td><td>R2</td><td>Day 4</td></tr>
+            <tr><td>10</td><td>Prediction interval calibration: P10–P90 covers ~80% of observations</td><td>TL1</td><td>Day 5</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Budget Summary (Confirmed)</h3>
+    <table>
+        <thead><tr><th>Item</th><th>Cost</th><th>Status</th></tr></thead>
+        <tbody>
+            <tr><td>Quandl / Nasdaq Data Link — BDI API access (1 month)</td><td>~$50 (~₹4,200)</td><td style="color:#059669"><strong>✅ Approved</strong></td></tr>
+            <tr><td>Signal Ocean API — route-level freight rates</td><td>Free tier</td><td style="color:#059669"><strong>✅ Use it</strong></td></tr>
+            <tr><td>Vercel — frontend hosting (if needed)</td><td>Free tier</td><td>🟢 Optional</td></tr>
+            <tr><td colspan="2" style="text-align:right; font-weight:700;">Total</td><td style="font-weight:700;">~₹4,200</td></tr>
+        </tbody>
+    </table>
+
+    <hr class="divider">
+
+    <div class="alert alert-success">
+        <div class="alert-title">🏆 Success Criteria</div>
+        <strong>We win the Beta round when:</strong>
+        <ol style="margin-top:8px; padding-left:20px; color:#166534;">
+            <li>Judges see <strong>real BDI data</strong> with honest accuracy metrics (DA &gt; 70%, R² &gt; 0.75)</li>
+            <li>The UI looks <strong>nothing like Streamlit</strong> — custom React dashboard with route maps and animations</li>
+            <li>Every team member can <strong>explain the math</strong>: quantile regression, MILP, SHAP, CEEMDAN, advance/spot modeling</li>
+            <li>The solver produces <strong>different assignments</strong> with advance vs spot modeling</li>
+            <li>The system runs <strong>offline in Docker</strong> with zero internet dependency</li>
+            <li>The pitch narrative is <strong>"We heard your feedback, here's exactly what we fixed and why"</strong></li>
+        </ol>
+    </div>
+
+    <div style="text-align:center; margin-top:30px; padding:20px; background:var(--bg-light); border-radius:12px;">
+        <p style="font-size:14px; font-weight:700; color:var(--navy); margin-bottom:4px;">Team VarunSetu — SIH 2026</p>
+        <p style="font-size:11px; color:var(--text-muted); margin:0;">Ministry of Steel · Problem 26006 · Beta Round</p>
+        <p style="font-size:11px; color:var(--text-muted); margin-top:4px;">Generated: 22 September 2026 · Confidential</p>
+    </div>
+</div>
+
+</body>
+</html>
