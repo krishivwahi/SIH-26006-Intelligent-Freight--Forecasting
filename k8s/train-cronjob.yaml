@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sih-train-job
+spec:
+  schedule: "0 2 * * 0" # Every Sunday at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: train
+            image: ghcr.io/krishivwahi/SIH-26006/sih-train:latest
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+              - name: model-store
+                mountPath: /app/models
+              - name: forecast-data
+                mountPath: /app/data/interim
+              - name: raw-data
+                mountPath: /app/data/raw
+          restartPolicy: OnFailure
+          volumes:
+            - name: model-store
+              persistentVolumeClaim:
+                claimName: model-store-pvc
+            - name: forecast-data
+              persistentVolumeClaim:
+                claimName: forecast-data-pvc
+            - name: raw-data
+              persistentVolumeClaim:
+                claimName: raw-data-pvc
