@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  # ── Always-on: API + Solver + Inference ──
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.serve
+    ports:
+      - "8000:8000"
+    volumes:
+      - model-store:/app/models        # Shared model volume
+      - forecast-data:/app/data/interim
+    environment:
+      - MODEL_DIR=/app/models
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  # ── Always-on: Streamlit UI ──
+  ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://api:8000
+    depends_on:
+      - api
+    restart: always
+
+  # ── Batch: Weekly retraining (runs and exits) ──
+  trainer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.train
+    volumes:
+      - model-store:/app/models
+      - forecast-data:/app/data/interim
+      - raw-data:/app/data/raw
+    environment:
+      - MODEL_DIR=/app/models
+    profiles: ["train"]  # Only runs when explicitly triggered
+
+  # ── Scheduled: Cron trigger for training ──
+  scheduler:
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: >
+      sh -c "
+        while true; do
+          echo 'Waiting until Sunday 02:00 UTC for next training run...';
+          sleep 604800;
+          docker compose --profile train run --rm trainer;
+        done
+      "
+    restart: always
+
+volumes:
+  model-store:    # Persists trained models across container restarts
+  forecast-data:  # Persists forecast JSON
+  raw-data:       # Persists downloaded market data

@@ -1,0 +1,3 @@
+# notebooks/ — optional exploration notebooks
+# Do not commit model outputs or large data files here.
+.gitkeep
