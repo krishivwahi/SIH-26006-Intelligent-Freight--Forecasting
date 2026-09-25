@@ -1,0 +1,9 @@
+# Streamlit runtime dependencies. Keep this file small because Streamlit
+# Community Cloud installs the root requirements.txt on every deployment.
+numpy==1.26.4
+pandas==2.2.1
+pulp==2.8.0
+streamlit==1.35.0
+plotly==5.22.0
+optuna>=3.5
+EMD-signal>=1.5
