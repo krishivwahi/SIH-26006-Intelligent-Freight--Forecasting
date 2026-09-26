@@ -39,6 +39,7 @@ class QuantileForecaster:
         learning_rate: float = 0.05,
         num_leaves: int = 31,
         random_state: int = 42,
+        **kwargs,
     ) -> None:
         if horizon < 1:
             raise ValueError(f"Horizon must be >= 1, got {horizon}")
@@ -48,6 +49,7 @@ class QuantileForecaster:
         self.learning_rate = learning_rate
         self.num_leaves = num_leaves
         self.random_state = random_state
+        self.kwargs = kwargs
         self.alphas = list(self.DEFAULT_ALPHAS)
         self.models: Dict[float, lgb.LGBMRegressor] = {}
         self._feature_names: Optional[List[str]] = None
@@ -119,6 +121,7 @@ class QuantileForecaster:
                 num_leaves=self.num_leaves,
                 random_state=self.random_state,
                 verbose=-1,
+                **self.kwargs,
             )
             model.fit(X_exp, y_exp)
             self.models[alpha] = model

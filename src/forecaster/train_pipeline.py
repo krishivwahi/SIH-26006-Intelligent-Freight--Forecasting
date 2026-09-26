@@ -121,11 +121,26 @@ def run_training_pipeline(
 
     #  5. Train LightGBM Multi-Step Quantile Regressors on TRAIN only 
     print(f"Training QuantileForecaster on {len(X_train)} samples with {X_train.shape[1]} features...")
+    
+    # Load optimized hyperparameters if available
+    best_params_path = os.path.join(model_dir, "best_params.json")
+    optuna_kwargs = {}
+    if os.path.exists(best_params_path):
+        import json
+        print(f"Loading optimized hyperparameters from {best_params_path}...")
+        with open(best_params_path, "r") as f:
+            bp_data = json.load(f)
+            if "best_params" in bp_data:
+                optuna_kwargs = bp_data["best_params"]
+                n_estimators = optuna_kwargs.pop("n_estimators", n_estimators)
+                learning_rate = optuna_kwargs.pop("learning_rate", learning_rate)
+
     forecaster = QuantileForecaster(
         horizon=30,
         n_estimators=n_estimators,
         learning_rate=learning_rate,
         random_state=random_state,
+        **optuna_kwargs,
     )
     forecaster.train(X_train, y_train)
 
