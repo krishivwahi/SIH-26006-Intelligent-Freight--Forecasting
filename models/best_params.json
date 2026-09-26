@@ -1,0 +1,23 @@
+{
+  "study_name": "freight_rate_lgbm_bayesian_search",
+  "best_value": 34.118916212427024,
+  "best_params": {
+    "n_estimators": 422,
+    "learning_rate": 0.2901707416103911,
+    "num_leaves": 104,
+    "min_child_samples": 60,
+    "subsample": 0.5836873233102334,
+    "colsample_bytree": 0.6680003157922612,
+    "lambda_l1": 0.01192457149176318,
+    "lambda_l2": 9.609637177457353
+  },
+  "n_trials": 200,
+  "cv_splits": 5,
+  "quantiles": [
+    0.1,
+    0.5,
+    0.9
+  ],
+  "horizon": 30,
+  "random_state": 42
+}
