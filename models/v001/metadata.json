@@ -1,0 +1,23 @@
+{
+  "version": "v001",
+  "trained_at": "2026-09-26T17:06:25.440281",
+  "training_samples": 384,
+  "test_samples": 96,
+  "feature_count": 124,
+  "oos_metrics": {
+    "mae": 515.0653,
+    "rmse": 601.7757,
+    "r2": -0.6597,
+    "mape": 18.34,
+    "directional_accuracy": 70.97
+  },
+  "arima_order": [
+    2,
+    1,
+    1
+  ],
+  "lgb_params": {
+    "n_estimators": 422,
+    "learning_rate": 0.2901707416103911
+  }
+}
