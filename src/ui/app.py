@@ -164,21 +164,38 @@ st.markdown(
     
     [data-testid="stSidebar"] button,
     [data-testid="stSidebar"] button * {
-        color: #1b1d20 !important;
+        color: #f4f4f2 !important;
     }
-    
-    /* Fix for broken Streamlit icons rendering as raw text */
+
+    /* Keep the Overview control readable on the dark sidebar. */
+    [data-testid="stSidebar"] [data-testid="stButton"] > button,
+    [data-testid="stSidebar"] [data-testid="stButton"] > button *,
+    [data-testid="stSidebar"] [data-testid="stButton"] > button span,
+    [data-testid="stSidebar"] [data-testid="stButton"] > button p {
+        color: #f4f4f2 !important;
+        opacity: 1 !important;
+    }
+
+    /* Fix for broken Streamlit icons rendering as raw text. Keep the two
+       native controls independent so each icon matches its own background. */
     [data-testid="collapsedControl"] button,
+    [data-testid="collapsedControl"] * {
+        font-family: "Material Symbols Rounded", sans-serif !important;
+    }
+    [data-testid="collapsedControl"] button svg {
+        color: #1b1d20 !important;
+        fill: #1b1d20 !important;
+        stroke: #1b1d20 !important;
+    }
+
     [data-testid="stSidebarCollapseButton"] button,
-    [data-testid="collapsedControl"] *,
     [data-testid="stSidebarCollapseButton"] * {
         font-family: "Material Symbols Rounded", sans-serif !important;
     }
-    [data-testid="collapsedControl"] button svg,
     [data-testid="stSidebarCollapseButton"] button svg {
-        color: #1b1d20 !important;
-        fill: #f7f7f5 !important;
-        stroke: #1b1d20 !important;
+        color: #f4f4f2 !important;
+        fill: #f4f4f2 !important;
+        stroke: #f4f4f2 !important;
     }
     [data-testid="stSidebar"] hr { border-color: #2d2f32 !important; opacity: 1 !important; }
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
