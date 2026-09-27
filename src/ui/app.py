@@ -164,7 +164,7 @@ st.markdown(
     
     [data-testid="stSidebar"] button,
     [data-testid="stSidebar"] button * {
-        color: #f4f4f2 !important;
+        color: #1b1d20 !important;
     }
     
     /* Fix for broken Streamlit icons rendering as raw text */
