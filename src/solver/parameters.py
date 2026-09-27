@@ -182,8 +182,8 @@ VESSELS: list[dict] = [
 #                           per-vessel gear; field kept for future wiring)
 #   review_status         : 'KEEP' = strongly evidenced lane;
 #                           'FLAG' = Alpha planning extension, label in UI
-#   laycan_open           : ⏳ PLACEHOLDER — earliest load day (offset from day 0)
-#   laycan_close          : ⏳ PLACEHOLDER — latest load day (offset from day 0)
+#   laycan_open           :  PLACEHOLDER — earliest load day (offset from day 0)
+#   laycan_close          :  PLACEHOLDER — latest load day (offset from day 0)
 #
 # Laycan windows are spread across the 30-day horizon in ~3-day bands so the
 # MILP is guaranteed feasible with dummy rates.  Replace with real windows

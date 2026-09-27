@@ -12,10 +12,13 @@ Orchestrates:
 from __future__ import annotations
 
 import os
+import json
 from datetime import date, datetime
 from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
+import numpy as np
+from sklearn.model_selection import TimeSeriesSplit
 
 from src.data.feature_engineering import build_feature_matrix
 from src.data.load_real_data import load_and_merge_all
@@ -86,89 +89,124 @@ def run_training_pipeline(
     #  2. Build base feature matrix (calendar, seasonal, lags, rolling, momentum) 
     X, y = build_feature_matrix(df_raw, target_column="freight_rate", date_column="date")
 
-    #  3. Temporal 80/20 train / test split 
-    # Splitting by time (not random) to avoid lookahead leakage.
-    # The model trains on the first 80% of the dataset and is evaluated on
-    # the final 20% it has never seen — giving out-of-sample (OOS) metrics.
-    split_idx = int(len(X) * 0.80)
-    X_train, X_test = X.iloc[:split_idx].copy(), X.iloc[split_idx:].copy()
-    y_train, y_test = y.iloc[:split_idx].copy(), y.iloc[split_idx:].copy()
-    print(f"Train: {len(X_train)} rows | Test (OOS): {len(X_test)} rows")
+    #  3. Walk-Forward Cross-Validation 
+    # Replacing the naive 80/20 split with rigorous 3-fold Walk-Forward CV.
+    print("Starting 3-fold Walk-Forward Cross-Validation...")
+    tscv = TimeSeriesSplit(n_splits=3)
+    
+    cv_metrics = {"mae": [], "rmse": [], "da": [], "coverage": []}
+    
+    X_train_final = None
+    X_test_final = None
+    y_train_final = None
+    y_test_final = None
+    final_forecaster = None
+    final_arima = None
+    
+    fold = 1
+    for train_index, test_index in tscv.split(X):
+        X_tr, X_te = X.iloc[train_index].copy(), X.iloc[test_index].copy()
+        y_tr, y_te = y.iloc[train_index].copy(), y.iloc[test_index].copy()
+        
+        # Fit ARIMA
+        arima_m = AutoARIMABaseline(max_p=2, max_q=2, max_d=1, random_state=random_state)
+        arima_m.fit(y_tr)
+        X_tr["arima_pred"] = arima_m.predict_in_sample()[-len(X_tr):]
+        try:
+            X_te["arima_pred"] = arima_m.model_.predict(n_periods=len(X_te))
+        except Exception:
+            X_te["arima_pred"] = X_tr["arima_pred"].iloc[-1] if len(X_tr) else 0.0
 
-    #  4. Fit AutoARIMA baseline on TRAIN only, inject as bridge feature 
-    print("Fitting AutoARIMA baseline on train split...")
-    arima_model = AutoARIMABaseline(max_p=2, max_q=2, max_d=1, random_state=random_state)
-    arima_model.fit(y_train)
-    arima_fitted_train = arima_model.predict_in_sample()
+        # Load optimized hyperparameters if available
+        best_params_path = os.path.join(model_dir, "best_params.json")
+        optuna_kwargs = {}
+        if os.path.exists(best_params_path):
+            with open(best_params_path, "r") as f:
+                bp_data = json.load(f)
+                if "best_params" in bp_data:
+                    optuna_kwargs = bp_data["best_params"]
+                    n_est = optuna_kwargs.pop("n_estimators", n_estimators)
+                    lr = optuna_kwargs.pop("learning_rate", learning_rate)
+        else:
+            n_est = n_estimators
+            lr = learning_rate
 
-    # Inject in-sample ARIMA predictions as a bridge feature for LightGBM
-    X_train["arima_pred"] = arima_fitted_train[-len(X_train):]
+        # Train QuantileForecaster
+        f_model = QuantileForecaster(
+            horizon=30, n_estimators=n_est, learning_rate=lr, random_state=random_state, **optuna_kwargs
+        )
+        f_model.train(X_tr, y_tr)
 
-    # For the test set, produce ARIMA out-of-sample forecasts
-    try:
-        arima_oos = arima_model.model_.predict(n_periods=len(X_test))
-        X_test["arima_pred"] = arima_oos
-    except Exception:
-        # Fallback: use the last known fitted value
-        X_test["arima_pred"] = arima_fitted_train[-1] if len(arima_fitted_train) else 0.0
+        # Evaluate OOS metrics for the fold
+        oos_p50_list = []
+        oos_p10_list = []
+        oos_p90_list = []
+        step = max(1, len(X_te) // 30)
+        for idx in range(0, len(X_te), step):
+            row_pred = f_model.predict(X_te.iloc[[idx]])
+            p50_h1 = float(row_pred[row_pred["horizon_step"] == 1]["p50"].iloc[0])
+            p10_h1 = float(row_pred[row_pred["horizon_step"] == 1]["p10"].iloc[0])
+            p90_h1 = float(row_pred[row_pred["horizon_step"] == 1]["p90"].iloc[0])
+            oos_p50_list.append(p50_h1)
+            oos_p10_list.append(p10_h1)
+            oos_p90_list.append(p90_h1)
+
+        sampled_indices = list(range(0, len(X_te), step))
+        y_te_sampled = [float(y_te.iloc[i]) for i in sampled_indices]
+        
+        if len(oos_p50_list) >= 2:
+            n = min(len(oos_p50_list), len(y_te_sampled))
+            y_true = y_te_sampled[:n]
+            preds = oos_p50_list[:n]
+            err = calculate_forecast_errors(y_true, preds)
+            da = calculate_directional_accuracy(y_true, preds)
+            
+            # Calibration check: Does P10-P90 contain the true value?
+            in_bound = sum(1 for i in range(n) if oos_p10_list[i] <= y_true[i] <= oos_p90_list[i])
+            coverage = in_bound / n * 100
+            
+            cv_metrics["mae"].append(err["mae"])
+            cv_metrics["rmse"].append(err["rmse"])
+            cv_metrics["da"].append(da)
+            cv_metrics["coverage"].append(coverage)
+            print(f"Fold {fold} - MAE: {err['mae']:.2f}, DA: {da:.1f}%, Coverage: {coverage:.1f}%")
+        
+        # Keep last fold as final for serialization
+        if fold == tscv.get_n_splits():
+            X_train_final, X_test_final = X_tr, X_te
+            y_train_final, y_test_final = y_tr, y_te
+            final_forecaster = f_model
+            final_arima = arima_m
+            
+        fold += 1
+
+    avg_mae = np.mean(cv_metrics["mae"])
+    avg_rmse = np.mean(cv_metrics["rmse"])
+    avg_da = np.mean(cv_metrics["da"])
+    avg_cov = np.mean(cv_metrics["coverage"])
+    print(f"\n--- Walk-Forward CV Averages ---")
+    print(f"Avg MAE: {avg_mae:.2f} | Avg RMSE: {avg_rmse:.2f} | Avg DA: {avg_da:.1f}% | Avg P10-P90 Coverage: {avg_cov:.1f}%\n")
+    
+    oos_metrics = {
+        "mae": round(avg_mae, 4),
+        "rmse": round(avg_rmse, 4),
+        "directional_accuracy": round(avg_da, 2),
+        "coverage": round(avg_cov, 2)
+    }
 
     version = _next_version(model_dir)
     versioned_dir = os.path.join(model_dir, version)
     os.makedirs(versioned_dir, exist_ok=True)
 
     arima_path = os.path.join(versioned_dir, "arima_baseline.joblib")
-    arima_model.save(arima_path)
+    final_arima.save(arima_path)
 
-    #  5. Train LightGBM Multi-Step Quantile Regressors on TRAIN only 
-    print(f"Training QuantileForecaster on {len(X_train)} samples with {X_train.shape[1]} features...")
-    
-    # Load optimized hyperparameters if available
-    best_params_path = os.path.join(model_dir, "best_params.json")
-    optuna_kwargs = {}
-    if os.path.exists(best_params_path):
-        import json
-        print(f"Loading optimized hyperparameters from {best_params_path}...")
-        with open(best_params_path, "r") as f:
-            bp_data = json.load(f)
-            if "best_params" in bp_data:
-                optuna_kwargs = bp_data["best_params"]
-                n_estimators = optuna_kwargs.pop("n_estimators", n_estimators)
-                learning_rate = optuna_kwargs.pop("learning_rate", learning_rate)
+    model_save_path = os.path.join(versioned_dir, "meta.pkl")
+    final_forecaster.save(versioned_dir)
 
-    forecaster = QuantileForecaster(
-        horizon=30,
-        n_estimators=n_estimators,
-        learning_rate=learning_rate,
-        random_state=random_state,
-        **optuna_kwargs,
-    )
-    forecaster.train(X_train, y_train)
-
-    model_save_path = os.path.join(versioned_dir, "quantile_forecaster.joblib")
-    forecaster.save(versioned_dir)
-
-    #  5b. Compute Out-of-Sample (OOS) Evaluation Metrics 
-    print("Computing out-of-sample evaluation metrics on held-out 20%...")
-    oos_preds_df = forecaster.predict(X_test.iloc[[0]])  # 1-step-ahead from test start
-    # For OOS directional accuracy: use 1-step-ahead P50 predictions across the test set
-    oos_p50_list = []
-    step = max(1, len(X_test) // 30)  # sample ~30 points across test window
-    for idx in range(0, len(X_test), step):
-        row_pred = forecaster.predict(X_test.iloc[[idx]])
-        p50_h1 = float(row_pred[row_pred["horizon_step"] == 1]["p50"].iloc[0])
-        oos_p50_list.append(p50_h1)
-
-    # Align true values to the sampled indices
-    sampled_indices = list(range(0, len(X_test), step))
-    y_test_sampled = [float(y_test.iloc[i]) for i in sampled_indices]
-
-    oos_metrics: dict = {"mae": None, "rmse": None, "r2": None, "mape": None, "directional_accuracy": None}
-    if len(oos_p50_list) >= 2 and len(y_test_sampled) >= 2:
-        n = min(len(oos_p50_list), len(y_test_sampled))
-        oos_metrics = calculate_forecast_errors(y_test_sampled[:n], oos_p50_list[:n])
-        da = calculate_directional_accuracy(y_test_sampled[:n], oos_p50_list[:n])
-        oos_metrics["directional_accuracy"] = round(da, 2)
-        print(f"OOS MAE: {oos_metrics['mae']:.4f} | RMSE: {oos_metrics['rmse']:.4f} | DA: {da:.1f}%")
+    # Use the final fold's training/test sets for SHAP and forward forecasting
+    X_train, X_test = X_train_final, X_test_final
+    forecaster = final_forecaster
 
     # ── 6. Compute and export SHAP explainability artifact ─────────────────
     shap_json_path = os.path.join(versioned_dir, "shap_summary.json")
@@ -219,7 +257,7 @@ def run_training_pipeline(
         "test_samples": len(X_test),
         "feature_count": X_train.shape[1],
         "oos_metrics": oos_metrics,
-        "arima_order": list(arima_model.get_order()),
+        "arima_order": list(final_arima.get_order()),
         "lgb_params": {
             "n_estimators": n_estimators,
             "learning_rate": learning_rate,

@@ -1,0 +1,110 @@
+{
+  "global_importance": [
+    {
+      "feature": "dxy_rmean_30",
+      "importance": 115.5862
+    },
+    {
+      "feature": "horizon_step",
+      "importance": 95.2608
+    },
+    {
+      "feature": "dxy_rmean_14",
+      "importance": 71.3453
+    },
+    {
+      "feature": "dxy_rmean_7",
+      "importance": 55.8795
+    },
+    {
+      "feature": "sp500_rmean_14",
+      "importance": 32.0995
+    },
+    {
+      "feature": "gscpi_rmean_30",
+      "importance": 27.0223
+    },
+    {
+      "feature": "dxy_lag_14",
+      "importance": 25.4336
+    },
+    {
+      "feature": "freight_rate_rstd_14",
+      "importance": 23.5383
+    },
+    {
+      "feature": "gscpi_rstd_30",
+      "importance": 21.4899
+    },
+    {
+      "feature": "sp500_rmean_30",
+      "importance": 20.7477
+    }
+  ],
+  "local_attribution": {
+    "base_value": 1801.6571,
+    "predicted_value": 3046.3211,
+    "top_contributions": [
+      {
+        "feature": "day_of_year",
+        "feature_value": 138.0,
+        "shap_value": 150.2926,
+        "abs_shap": 150.29262759725475
+      },
+      {
+        "feature": "ifo380_price_lag_30",
+        "feature_value": 827.0,
+        "shap_value": 147.6374,
+        "abs_shap": 147.63735860248858
+      },
+      {
+        "feature": "dxy_rmean_30",
+        "feature_value": 118.8653,
+        "shap_value": 145.6568,
+        "abs_shap": 145.65684181423399
+      },
+      {
+        "feature": "dxy_rmean_14",
+        "feature_value": 118.6075,
+        "shap_value": 108.0646,
+        "abs_shap": 108.0646135965115
+      },
+      {
+        "feature": "horizon_step",
+        "feature_value": 1.0,
+        "shap_value": -102.9138,
+        "abs_shap": 102.91381551884798
+      },
+      {
+        "feature": "freight_rate_rmean_30",
+        "feature_value": 2645.8333,
+        "shap_value": 98.9148,
+        "abs_shap": 98.9147996093752
+      },
+      {
+        "feature": "brent_lag_30",
+        "feature_value": 121.88,
+        "shap_value": 71.3361,
+        "abs_shap": 71.33605270366164
+      },
+      {
+        "feature": "ifo380_price_rmean_30",
+        "feature_value": 752.9833,
+        "shap_value": 69.2464,
+        "abs_shap": 69.24642980978739
+      },
+      {
+        "feature": "ifo380_price_rmean_7",
+        "feature_value": 770.0,
+        "shap_value": 53.9478,
+        "abs_shap": 53.94778720149861
+      },
+      {
+        "feature": "dxy_rmean_7",
+        "feature_value": 118.6059,
+        "shap_value": 45.4913,
+        "abs_shap": 45.491289534156486
+      }
+    ]
+  }
+}

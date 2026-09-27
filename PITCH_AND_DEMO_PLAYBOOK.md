@@ -1,10 +1,10 @@
-# 🏆 VarunSetu — SIH 2026 Pitch & Live Demo Playbook
+#  VarunSetu — SIH 2026 Pitch & Live Demo Playbook
 ## Problem Statement 26006 · Ministry of Steel, Government of India
 ### *Intelligent Freight Forecasting Model for Optimized Vessel Chartering and Bulk Cargo Procurement*
 
 ---
 
-## 📌 Executive Summary (The 30-Second Elevator Pitch)
+##  Executive Summary (The 30-Second Elevator Pitch)
 
 > *"Since the 2013 exemption of PSUs like SAIL and RINL from mandatory Transchart routing, Indian steelmakers charter dry bulk vessels directly on the international market. However, dry bulk freight rates are among the world’s most volatile commodity indices. 
 > 
@@ -12,7 +12,7 @@
 
 ---
 
-## 🎬 The 2-Minute Live Demo Choreography
+##  The 2-Minute Live Demo Choreography
 
 Follow this exact sequence during the live presentation to wow the judges:
 
@@ -23,11 +23,11 @@ Follow this exact sequence during the live presentation to wow the judges:
 ### Step 1: Establish Problem & Brand (0:00 – 0:25)
 - **Visual:** Point to the top header **"VarunSetu — Maritime Chartering Intelligence"** and Problem Snapshot.
 - **Talking Point:** *"Judges, this is VarunSetu. It connects the Ministry of Steel's coking coal import corridors—Australia, US East Coast, Canada—to Indian discharge ports like Vizag, Paradip, and Haldia."*
-- **Action:** Point to the **Decision Advisor Banner** (`01 🚦 What Should We Do Right Now?`).
-- **Explain:** *"A chartering officer doesn't just want raw numbers. They need an executive verdict. VarunSetu displays: **`✅ CHARTER NOW — Rates Are Rising`** because rates are projected to increase by +4.8% over the next 30 days. Waiting will cost more."*
+- **Action:** Point to the **Decision Advisor Banner** (`01  What Should We Do Right Now?`).
+- **Explain:** *"A chartering officer doesn't just want raw numbers. They need an executive verdict. VarunSetu displays: **` CHARTER NOW — Rates Are Rising`** because rates are projected to increase by +4.8% over the next 30 days. Waiting will cost more."*
 
 ### Step 2: Per-Vessel Actionable Cards (0:25 – 0:50)
-- **Visual:** Scroll to **"📋 Decision for Each Ship"**.
+- **Visual:** Scroll to **" Decision for Each Ship"**.
 - **Talking Point:** *"Look at MV V-002 (Supramax). It tells us: load at Hay Point on Oct 14, deliver 52,000 tonnes to Vizag, lock in $24.88/t freight rate, avoiding $187,000 in worst-case downside risk."*
 - **Call out V-001:** *"Notice MV TS INDEX (V-001) is clearly flagged as **Fleet Reserve**. Because all coking coal lots are ≥40,000 MT, our MILP feasibility constraints protect the fleet from sending an undersized 38k Handysize into an unviable route."*
 
@@ -35,22 +35,22 @@ Follow this exact sequence during the live presentation to wow the judges:
 - **Visual:** Move to the left sidebar.
 - **Action 1:** Move **Freight Rate Shock** slider to **+15%**.
 - **Action 2:** Move **VLSFO Bunker Fuel Price** slider to **$750/MT**.
-- **Action 3:** Click **`▶ Run Solver`**.
+- **Action 3:** Click **` Run Solver`**.
 - **Visual Result:** Watch the **`00 Scenario Impact vs Baseline`** 3-card grid instantly recalculate objective delta, net profit change, and fuel sensitivity.
 - **Talking Point:** *"In maritime chartering, market shocks happen overnight. With one click, the PuLP CBC solver re-optimizes all 1,500 decision variables in under 50 milliseconds."*
 
 ### Step 4: Prove Commercial Value & Walk-Forward (1:15 – 1:40)
-- **Visual:** Click on **Tab 4: `🏆 Benchmark & Profit Uplift`**.
+- **Visual:** Click on **Tab 4: ` Benchmark & Profit Uplift`**.
 - **Action:** Show the **Cumulative Cost Savings Curve** across 12 sequential 30-day historical cycles.
 - **Talking Point:** *"How do we know the AI actually beats a seasoned charterer? We ran an out-of-sample continuous walk-forward simulation across an entire operational year. Compared to a Naive Day-1 spot booking policy, VarunSetu saved **$584,200 (100% win-rate)**. Even against a Greedy heuristic that searches the laycan, the AI's risk-adjusted score avoids costly port congestion and bunker burn."*
 
 ### Step 5: Explainability & Governance (1:40 – 2:00)
-- **Visual:** Scroll down to **`04 🔍 Model Explainability (SHAP)`**.
+- **Visual:** Scroll down to **`04  Model Explainability (SHAP)`**.
 - **Talking Point:** *"Finally, this is not a black box. Using Lundberg & Lee's TreeExplainer, we generate exact SHAP waterfall attributions. The charterer sees that short-term momentum, NY Fed Supply Chain Pressure, and Iron Ore volatility pushed the rate up by +$1.85/t. Every dollar is transparent, auditable, and defendable."*
 
 ---
 
-## 🛡️ Top 10 Tough Judge Questions & Bullet-Proof Defenses
+##  Top 10 Tough Judge Questions & Bullet-Proof Defenses
 
 ### Q1: *"Is your freight rate target using real Baltic Dry Index data?"*
 - **Defense:** *"In Alpha, we use free public macroeconomic proxies (FRED, NY Fed, USDA, World Bank) combined with a calibrated synthetic series scaled to match real Baltic Capesize/Supramax historical rate bands ($15–$35/MT). Baltic Exchange proprietary feeds cost thousands of pounds annually; our software architecture has a locked JSON contract (`CONTRACT.md`) so that when the Ministry provides API keys, it drops in seamlessly without changing a single line of solver logic."*
@@ -84,7 +84,7 @@ Follow this exact sequence during the live presentation to wow the judges:
 
 ---
 
-## 📐 Mathematical Formulation Quick-Reference
+##  Mathematical Formulation Quick-Reference
 
 ### 1. Risk-Adjusted Score Objective (Wang et al. Downside Penalty)
 $$\text{Score}(v, r, t) = P_{50}(v, r, t) - \lambda \cdot \Big(P_{50}(v, r, t) - P_{10}(v, r, t)\Big)$$
@@ -104,7 +104,7 @@ $$\mathcal{L}_{\alpha}(y, \hat{y}) = \max\Big(\alpha(y - \hat{y}), \, (\alpha - 
 
 ---
 
-## 🏆 Presentation Checklist
+##  Presentation Checklist
 - [x] Streamlit live dashboard running (`python -m streamlit run src/ui/app.py`)
 - [x] Browser window set to full screen with expanded sidebar
 - [x] Offline dependencies verified (no internet required during judging)

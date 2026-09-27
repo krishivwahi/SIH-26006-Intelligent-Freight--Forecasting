@@ -37,7 +37,7 @@ DATA SOURCES (public, free, re-checkable — see COUNTRY_RISK_INDEX below)
     COUNTRY_RISK_INDEX below — no other function in this file needs to change.
 
 SWAP STATUS:
-    ⏳ COUNTRY_RISK_INDEX currently covers exactly the three origin countries
+     COUNTRY_RISK_INDEX currently covers exactly the three origin countries
        present in parameters.ROUTES today (Australia, Canada, USA). Add any
        new origin country here BEFORE it appears in ROUTES — get_country_risk()
        fails loudly (KeyError) on an unmapped country rather than silently

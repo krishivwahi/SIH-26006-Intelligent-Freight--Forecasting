@@ -18,8 +18,8 @@ def synthetic_market_data(tmp_path):
         generate_synthetic_bunker_fuel,
         generate_synthetic_freight_rates,
     )
-    freight = generate_synthetic_freight_rates("2024-01-01", 120, seed=42)
-    bunker = generate_synthetic_bunker_fuel("2024-01-01", 120, seed=43)
+    freight = generate_synthetic_freight_rates("2024-01-01", 200, seed=42)
+    bunker = generate_synthetic_bunker_fuel("2024-01-01", 200, seed=43)
     merged = merge_data_sources(freight, bunker)
 
     out_csv = str(tmp_path / "test_market_data.csv")

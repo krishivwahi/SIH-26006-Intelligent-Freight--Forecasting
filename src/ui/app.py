@@ -1104,7 +1104,7 @@ else:
                     cone_fig.add_trace(go.Scatter(x=dates, y=p50, mode="lines+markers", line=dict(color="#49c8bc", width=2.5), marker=dict(size=4), name="P50 Median Forecast"))
                     if assigned_for_route:
                         assigned_date = assigned_for_route["date"]
-                        assigned_label = f"⚓ Assigned: {assigned_for_route['vessel_id']} ({assigned_date})"
+                        assigned_label = f" Assigned: {assigned_for_route['vessel_id']} ({assigned_date})"
                         cone_fig.add_shape(
                             type="line", x0=assigned_date, x1=assigned_date, y0=0, y1=1,
                             xref="x", yref="paper", line=dict(width=2, dash="dash", color="#f1a15a"),

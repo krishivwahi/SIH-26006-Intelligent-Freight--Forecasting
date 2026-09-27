@@ -277,7 +277,7 @@ def solve(
     # Infeasible (vessel, route) pairs (all V-001 rows) are NOT added to the
     # feasible list — they will be explicitly forbidden by Big-M upper_bound=0
     # constraints in step 3 so the MILP certificate is complete.
-    feasible: list[tuple[str, str, str]] = []
+    feasible: list[tuple[str, str, str, str]] = []
     for vessel in VESSELS:
         vid = vessel["vessel_id"]
         for route in ROUTES:
@@ -290,20 +290,18 @@ def solve(
             for offset, date_str in enumerate(date_strings, start=1):
                 if not (lc_open <= offset <= lc_close):
                     continue  # outside THIS vessel's laycan window
-                key = (vid, rid, date_str)
-                if key in score_lookup:
-                    feasible.append(key)
+                base_key = (vid, rid, date_str)
+                if base_key in score_lookup:
+                    feasible.append((vid, rid, date_str, "Spot"))
+                    feasible.append((vid, rid, date_str, "Advance"))
 
-    # Pre-calculate net profit for each feasible triple
-    net_profit_lookup: dict[tuple[str, str, str], float] = {}
+    # Pre-calculate net profit for each feasible assignment
+    net_profit_lookup: dict[tuple[str, str, str, str], float] = {}
     for key in feasible:
-        vid, rid, date_str = key
+        vid, rid, date_str, ctype = key
         vessel = VESSEL_MAP[vid]
         route = ROUTE_MAP[rid]
         risk_breakdown = _country_risk_breakdown(route["origin"])
-        
-        # Freight revenue = Score ($/ton) * Cargo Lot (ton)
-        freight_revenue = score_lookup[key] * route["cargo_requirement_dwt"]
         
         # Voyage cost calculation
         semantic_delay_days = (
@@ -318,16 +316,24 @@ def solve(
         port_delay_cost = total_port_delay_days * DEMURRAGE_USD_PER_DAY
         voyage_cost = bunker_cost + port_delay_cost
         
+        # Freight revenue
+        if ctype == "Spot":
+            freight_revenue = score_lookup[(vid, rid, date_str)] * route["cargo_requirement_dwt"]
+        else:
+            # Advance locks in Day 1 rate + 2% forward premium. No risk penalty applies.
+            day1_rate = float(rate_lookup[(vid, rid, date_strings[0])]["p50_rate"])
+            freight_revenue = (day1_rate * 1.02) * route["cargo_requirement_dwt"]
+
         net_profit = freight_revenue - voyage_cost
         net_profit_lookup[key] = net_profit
 
     # ── 3. Build PuLP problem ───────────────────────────────────────────────────
     prob = pulp.LpProblem("VesselRouteAssignment", pulp.LpMaximize)
 
-    # Binary variable for each feasible triple
-    x: dict[tuple[str, str, str], pulp.LpVariable] = {}
+    # Binary variable for each feasible assignment
+    x: dict[tuple[str, str, str, str], pulp.LpVariable] = {}
     for key in feasible:
-        var_name = "x_{}_{}_{}".format(*key).replace("-", "_")
+        var_name = "x_{}_{}_{}_{}".format(*key).replace("-", "_")
         x[key] = pulp.LpVariable(var_name, cat="Binary")
 
     # ── Big-M: explicitly forbid all capacity-infeasible (vessel, route) triples
@@ -342,18 +348,19 @@ def solve(
             rid = route["route_id"]
             if LAYCAN_FEASIBLE.get((vid, rid), True):
                 continue  # feasible pair — already has binary vars above
-            # Infeasible pair: create x=0 upper-bound variables for all horizon days
+                # Infeasible pair: create x=0 upper-bound variables for all horizon days
             vr_entry = LAYCAN_MATRIX.get((vid, rid), {})
             lc_open  = vr_entry.get("laycan_open",  1)
             lc_close = vr_entry.get("laycan_close", 30)
             for offset, date_str in enumerate(date_strings, start=1):
                 if not (lc_open <= offset <= lc_close):
                     continue
-                key = (vid, rid, date_str)
-                var_name = "x_{}_{}_{}".format(*key).replace("-", "_")
-                # upper_bound=0 hard-forces this variable to 0 — the Big-M equivalent
-                # for a binary when the right-hand-side bound is tighter than any M.
-                x[key] = pulp.LpVariable(var_name, lowBound=0, upBound=0, cat="Continuous")
+                for ctype in ["Spot", "Advance"]:
+                    key = (vid, rid, date_str, ctype)
+                    var_name = "x_{}_{}_{}_{}".format(*key).replace("-", "_")
+                    # upper_bound=0 hard-forces this variable to 0 — the Big-M equivalent
+                    # for a binary when the right-hand-side bound is tighter than any M.
+                    x[key] = pulp.LpVariable(var_name, lowBound=0, upBound=0, cat="Continuous")
 
     # Objective: maximise total Net Profit (Revenue - Voyage Costs)
     prob += pulp.lpSum(net_profit_lookup[key] * x[key] for key in feasible), "TotalNetProfit"
@@ -403,8 +410,9 @@ def solve(
     if prob.status == pulp.LpStatusOptimal:
         for key, var in x.items():
             if pulp.value(var) is not None and pulp.value(var) > 0.5:
-                vid, rid, date_str = key
-                rec = rate_lookup.get(key, {})
+                vid, rid, date_str, ctype = key
+                base_key = (vid, rid, date_str)
+                rec = rate_lookup.get(base_key, {})
                 vessel_info = VESSEL_MAP[vid]
                 route_info = ROUTE_MAP[rid]
                 risk_breakdown = _country_risk_breakdown(route_info["origin"])
@@ -421,7 +429,14 @@ def solve(
                 bunker_cost = total_days * daily_bunker
                 port_delay_cost = total_port_delay_days * DEMURRAGE_USD_PER_DAY
                 voyage_cost = bunker_cost + port_delay_cost
-                freight_revenue = score_lookup[key] * route_info["cargo_requirement_dwt"]
+                
+                if ctype == "Spot":
+                    eff_score = score_lookup[base_key]
+                else:
+                    day1_rate = float(rate_lookup[(vid, rid, date_strings[0])]["p50_rate"])
+                    eff_score = day1_rate * 1.02
+                
+                freight_revenue = eff_score * route_info["cargo_requirement_dwt"]
                 net_profit = freight_revenue - voyage_cost
 
                 # Isolate the dollar cost attributable ONLY to the origin-country
@@ -436,7 +451,8 @@ def solve(
                         "vessel_id": vid,
                         "route_id": rid,
                         "date": date_str,
-                        "score": round(score_lookup[key], 4),
+                        "contract_type": ctype,
+                        "score": round(eff_score, 4),
                         "net_profit": round(net_profit, 2),
                         "voyage_cost": round(voyage_cost, 2),
                         "p50_rate": round(float(rec.get("p50_rate", 0)), 2),
