@@ -174,6 +174,12 @@ st.markdown(
     [data-testid="stSidebarCollapseButton"] * {
         font-family: "Material Symbols Rounded", sans-serif !important;
     }
+    [data-testid="collapsedControl"] button svg,
+    [data-testid="stSidebarCollapseButton"] button svg {
+        color: #1b1d20 !important;
+        fill: #f7f7f5 !important;
+        stroke: #1b1d20 !important;
+    }
     [data-testid="stSidebar"] hr { border-color: #2d2f32 !important; opacity: 1 !important; }
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"] *,
@@ -657,6 +663,8 @@ st.markdown(
             <span class="vs-chip">Australia</span>
             <span class="vs-chip">USA</span>
             <span class="vs-chip">Canada</span>
+            <span class="vs-chip">Mozambique</span>
+            <span class="vs-chip">Indonesia</span>
             <span class="vs-chip">LightGBM P10/P50/P90</span>
             <span class="vs-chip">Walk-Forward Backtested</span>
         </div>
