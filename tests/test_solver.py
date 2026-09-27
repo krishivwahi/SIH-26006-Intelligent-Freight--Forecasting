@@ -56,29 +56,29 @@ def dummy_forecast_path(tmp_path: Path) -> Path:
 
 class TestComputeScore:
     def test_formula_correctness(self) -> None:
-        """Score = P50 - λ*(P50 - P10). With p50=20, p10=16, λ=0.5 → 18.0"""
-        assert compute_score(p50=20.0, p10=16.0, lam=0.5) == pytest.approx(18.0)
+        """Cost = P50 + λ*(P90 - P50). With p50=20, p90=26, λ=0.5 → 23.0"""
+        assert compute_score(p50=20.0, p90=26.0, lam=0.5) == pytest.approx(23.0)
 
     def test_lambda_zero_returns_p50(self) -> None:
-        """λ=0 means no risk penalty — score equals the median rate."""
-        assert compute_score(p50=20.0, p10=16.0, lam=0.0) == pytest.approx(20.0)
+        """λ=0 means no risk penalty — cost equals the median rate."""
+        assert compute_score(p50=20.0, p90=26.0, lam=0.0) == pytest.approx(20.0)
 
-    def test_lambda_one_returns_p10(self) -> None:
-        """λ=1 means maximise worst-case floor — score equals P10."""
-        assert compute_score(p50=20.0, p10=16.0, lam=1.0) == pytest.approx(16.0)
+    def test_lambda_one_returns_p90(self) -> None:
+        """λ=1 means maximise downside risk — cost equals P90."""
+        assert compute_score(p50=20.0, p90=26.0, lam=1.0) == pytest.approx(26.0)
 
     def test_equal_quantiles_returns_rate(self) -> None:
-        """When P10 == P50 (zero uncertainty), score equals that rate."""
-        assert compute_score(p50=20.0, p10=20.0, lam=0.5) == pytest.approx(20.0)
+        """When P50 == P90 (zero upside risk), cost equals that rate."""
+        assert compute_score(p50=20.0, p90=20.0, lam=0.5) == pytest.approx(20.0)
 
     def test_invalid_lambda_raises(self) -> None:
         with pytest.raises(ValueError, match="λ must be in"):
-            compute_score(p50=20.0, p10=16.0, lam=1.5)
+            compute_score(p50=20.0, p90=26.0, lam=1.5)
 
     def test_quantile_inversion_raises(self) -> None:
-        """p10 > p50 violates quantile ordering and must raise."""
+        """p50 > p90 violates quantile ordering and must raise."""
         with pytest.raises(ValueError, match="Quantile ordering violated"):
-            compute_score(p50=15.0, p10=20.0, lam=0.5)
+            compute_score(p50=30.0, p90=20.0, lam=0.5)
 
     def test_bulk_scores_count(self) -> None:
         """compute_scores_bulk should return one score per record."""
@@ -90,7 +90,7 @@ class TestComputeScore:
         ]
         scores = compute_scores_bulk(records, lam=0.5)
         assert len(scores) == 2
-        assert scores[("V-001", "R-01", "2026-09-03")] == pytest.approx(18.0)
+        assert scores[("V-001", "R-01", "2026-09-03")] == pytest.approx(23.0)
 
 
 # ── Solver integration tests ───────────────────────────────────────────────────
@@ -245,11 +245,11 @@ class TestSolver:
         assert result.solve_time_ms > 0.0
 
     def test_lambda_affects_scores(self, dummy_forecast_path: Path) -> None:
-        """Higher λ must yield lower or equal objective (more conservative)."""
+        """Higher λ must yield higher or equal cost objective (more conservative)."""
         result_low = solve(lam=0.0, forecast_path=dummy_forecast_path)
         result_high = solve(lam=1.0, forecast_path=dummy_forecast_path)
-        assert result_high.objective_value <= result_low.objective_value, (
-            "Higher λ should penalise downside more, yielding lower or equal objective."
+        assert result_high.objective_value >= result_low.objective_value, (
+            "Higher λ should penalise upside more, yielding higher or equal cost objective."
         )
 
     def test_freight_multiplier_scales_revenue(self, dummy_forecast_path: Path) -> None:

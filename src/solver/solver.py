@@ -168,6 +168,16 @@ def _is_capacity_feasible(vessel: dict, route: dict) -> bool:
     return vessel["capacity_dwt"] >= route["cargo_requirement_dwt"]
 
 
+def _is_draft_feasible(vessel: dict, route: dict) -> bool:
+    """Check physical port constraints like draft limit."""
+    if route.get("destination") == "Haldia":
+        # Official Haldia coking coal berth (Berth 4) has an 8.4m present depth limit.
+        # Panamax vessels (>60,000 DWT) cannot physically berth fully laden.
+        if vessel["capacity_dwt"] > 60000:
+            return False
+    return True
+
+
 def _is_min_cargo_feasible(vessel: dict, route: dict) -> bool:
     """Return True if the route's cargo lot meets the vessel's commercial loading floor.
 
@@ -285,6 +295,9 @@ def solve(
             vr_entry = LAYCAN_MATRIX.get((vid, rid))
             if vr_entry is None or not vr_entry["feasible"]:
                 continue  # capacity-infeasible — forbidden by Big-M below
+                
+            if not _is_draft_feasible(vessel, route):
+                continue  # physically impossible to berth — forbidden
             lc_open  = vr_entry["laycan_open"]
             lc_close = vr_entry["laycan_close"]
             for offset, date_str in enumerate(date_strings, start=1):
@@ -316,19 +329,21 @@ def solve(
         port_delay_cost = total_port_delay_days * DEMURRAGE_USD_PER_DAY
         voyage_cost = bunker_cost + port_delay_cost
         
-        # Freight revenue
+        # Freight cost (Charterer pays freight)
         if ctype == "Spot":
-            freight_revenue = score_lookup[(vid, rid, date_str)] * route["cargo_requirement_dwt"]
+            eff_score = score_lookup[(vid, rid, date_str)]
         else:
             # Advance locks in Day 1 rate + 2% forward premium. No risk penalty applies.
             day1_rate = float(rate_lookup[(vid, rid, date_strings[0])]["p50_rate"])
-            freight_revenue = (day1_rate * 1.02) * route["cargo_requirement_dwt"]
+            eff_score = (day1_rate * 1.02)
+            
+        freight_cost = eff_score * route["cargo_requirement_dwt"]
 
-        net_profit = freight_revenue - voyage_cost
-        net_profit_lookup[key] = net_profit
+        total_landed_cost = freight_cost + voyage_cost
+        net_profit_lookup[key] = total_landed_cost
 
     # ── 3. Build PuLP problem ───────────────────────────────────────────────────
-    prob = pulp.LpProblem("VesselRouteAssignment", pulp.LpMaximize)
+    prob = pulp.LpProblem("VesselRouteAssignment", pulp.LpMinimize)
 
     # Binary variable for each feasible assignment
     x: dict[tuple[str, str, str, str], pulp.LpVariable] = {}
@@ -362,8 +377,17 @@ def solve(
                     # for a binary when the right-hand-side bound is tighter than any M.
                     x[key] = pulp.LpVariable(var_name, lowBound=0, upBound=0, cat="Continuous")
 
-    # Objective: maximise total Net Profit (Revenue - Voyage Costs)
-    prob += pulp.lpSum(net_profit_lookup[key] * x[key] for key in feasible), "TotalNetProfit"
+    # Shortage variables for unserved cargo
+    shortage_vars: dict[str, pulp.LpVariable] = {}
+    for route in ROUTES:
+        rid = route["route_id"]
+        shortage_vars[rid] = pulp.LpVariable(f"shortage_{rid}", cat="Binary")
+
+    # Objective: minimise Total Landed Cost (Freight + Voyage Costs) + Shortage Penalty ($10M per route)
+    prob += (
+        pulp.lpSum(net_profit_lookup[key] * x[key] for key in feasible)
+        + pulp.lpSum(10_000_000 * shortage_vars[rid] for rid in shortage_vars)
+    ), "TotalLandedCost"
 
     # Constraint 1: each vessel assigned to at most one route across all days
     for vessel in VESSELS:
@@ -380,8 +404,7 @@ def solve(
     for route in ROUTES:
         rid = route["route_id"]
         route_vars = [x[k] for k in feasible if k[1] == rid]
-        if route_vars:
-            prob += pulp.lpSum(route_vars) <= 1, f"OneVesselPerRoute_{rid}"
+        prob += pulp.lpSum(route_vars) + shortage_vars[rid] == 1, f"OneVesselPerRoute_{rid}"
 
     # ── 4. Solve ───────────────────────────────────────────────────────────
     t0 = time.perf_counter()
@@ -436,8 +459,8 @@ def solve(
                     day1_rate = float(rate_lookup[(vid, rid, date_strings[0])]["p50_rate"])
                     eff_score = day1_rate * 1.02
                 
-                freight_revenue = eff_score * route_info["cargo_requirement_dwt"]
-                net_profit = freight_revenue - voyage_cost
+                freight_cost = eff_score * route_info["cargo_requirement_dwt"]
+                total_landed_cost = freight_cost + voyage_cost
 
                 # Isolate the dollar cost attributable ONLY to the origin-country
                 # corruption/workforce-efficiency delay (src/solver/country_risk.py),
@@ -453,7 +476,7 @@ def solve(
                         "date": date_str,
                         "contract_type": ctype,
                         "score": round(eff_score, 4),
-                        "net_profit": round(net_profit, 2),
+                        "net_profit": round(total_landed_cost, 2), # UI expects net_profit field, repurposing for TCO
                         "voyage_cost": round(voyage_cost, 2),
                         "p50_rate": round(float(rec.get("p50_rate", 0)), 2),
                         "p10_rate": round(float(rec.get("p10_rate", 0)), 2),

@@ -15,36 +15,36 @@ Full CVaR with scenario generation is scoped for Beta.
 from __future__ import annotations
 
 
-def compute_score(p50: float, p10: float, lam: float = 0.5) -> float:
-    """Compute the risk-adjusted score for a single (vessel, route, day) triple.
+def compute_score(p50: float, p90: float, lam: float = 0.5) -> float:
+    """Compute the risk-adjusted cost for a single (vessel, route, day) triple.
 
     Args:
         p50: Median (50th percentile) freight rate forecast in $/ton.
-        p10: Pessimistic (10th percentile) freight rate forecast in $/ton.
+        p90: Pessimistic (90th percentile, high rate) freight rate forecast in $/ton.
         lam: Risk aversion parameter λ ∈ [0, 1]. Higher = more conservative.
              Default 0.5 per AGENT_CONTEXT.md.
 
     Returns:
-        Risk-adjusted score. Higher is better.
+        Risk-adjusted cost (Freight + Upside Risk Penalty). Lower is better.
 
     Raises:
-        ValueError: If p10 > p50 (violates quantile ordering) or lam not in [0, 1].
+        ValueError: If p50 > p90 (violates quantile ordering) or lam not in [0, 1].
     """
     if not (0.0 <= lam <= 1.0):
         raise ValueError(f"λ must be in [0, 1], got {lam}")
-    if p10 > p50:
+    if p50 > p90:
         raise ValueError(
-            f"Quantile ordering violated: p10={p10} > p50={p50}. "
+            f"Quantile ordering violated: p50={p50} > p90={p90}. "
             "Check forecast JSON for this (vessel, route, date) triple."
         )
-    return p50 - lam * (p50 - p10)
+    return p50 + lam * (p90 - p50)
 
 
 def compute_scores_bulk(
     records: list[dict],
     lam: float = 0.5,
 ) -> dict[tuple[str, str, str], float]:
-    """Compute risk-adjusted scores for all forecast records in one pass.
+    """Compute risk-adjusted costs for all forecast records in one pass.
 
     Args:
         records: List of dicts matching the JSON contract schema:
@@ -52,14 +52,14 @@ def compute_scores_bulk(
         lam: Risk aversion parameter λ.
 
     Returns:
-        Dict keyed by (vessel_id, route_id, date_index) → score.
+        Dict keyed by (vessel_id, route_id, date_index) → cost score.
     """
     scores: dict[tuple[str, str, str], float] = {}
     for rec in records:
         key = (rec["vessel_id"], rec["route_id"], rec["date_index"])
         scores[key] = compute_score(
             p50=float(rec["p50_rate"]),
-            p10=float(rec["p10_rate"]),
+            p90=float(rec["p90_rate"]),
             lam=lam,
         )
     return scores

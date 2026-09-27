@@ -153,9 +153,13 @@ class QuantileForecaster:
                 row_h["horizon_step"] = h
                 # Ensure column order matches training
                 row_h = row_h[self._feature_names]
-                p10 = float(self.models[0.1].predict(row_h)[0])
-                p50 = float(self.models[0.5].predict(row_h)[0])
-                p90 = float(self.models[0.9].predict(row_h)[0])
+                p10_raw = float(self.models[0.1].predict(row_h)[0])
+                p50_raw = float(self.models[0.5].predict(row_h)[0])
+                p90_raw = float(self.models[0.9].predict(row_h)[0])
+                
+                # Enforce monotonicity: P10 <= P50 <= P90
+                p10, p50, p90 = sorted([p10_raw, p50_raw, p90_raw])
+                
                 results.append({
                     "horizon_step": h,
                     "p10": round(p10, 2),
