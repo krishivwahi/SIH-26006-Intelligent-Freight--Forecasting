@@ -249,7 +249,6 @@ def run_training_pipeline(
     print(f"CSV export written to: {csv_path}")
 
     # Write metadata for audit trail
-    import json
     metadata = {
         "version": version,
         "trained_at": datetime.utcnow().isoformat(),

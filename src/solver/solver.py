@@ -168,12 +168,15 @@ def _is_capacity_feasible(vessel: dict, route: dict) -> bool:
     return vessel["capacity_dwt"] >= route["cargo_requirement_dwt"]
 
 
-def _is_draft_feasible(vessel: dict, route: dict) -> bool:
-    """Check physical port constraints like draft limit."""
+def _is_physical_feasible(vessel: dict, route: dict) -> bool:
+    """Check physical port constraints like draft and LOA (Length Overall) limits."""
     if route.get("destination") == "Haldia":
         # Official Haldia coking coal berth (Berth 4) has an 8.4m present depth limit.
         # Panamax vessels (>60,000 DWT) cannot physically berth fully laden.
         if vessel["capacity_dwt"] > 60000:
+            return False
+        # Haldia Lock limits vessels exceeding 230m LOA
+        if vessel.get("loa_m", 0) > 230.0:
             return False
     return True
 
@@ -296,8 +299,8 @@ def solve(
             if vr_entry is None or not vr_entry["feasible"]:
                 continue  # capacity-infeasible — forbidden by Big-M below
                 
-            if not _is_draft_feasible(vessel, route):
-                continue  # physically impossible to berth — forbidden
+            if not _is_physical_feasible(vessel, route):
+                continue  # physically impossible to berth (draft/LOA) — forbidden
             lc_open  = vr_entry["laycan_open"]
             lc_close = vr_entry["laycan_close"]
             for offset, date_str in enumerate(date_strings, start=1):

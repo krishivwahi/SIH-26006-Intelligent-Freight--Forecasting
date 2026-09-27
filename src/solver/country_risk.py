@@ -83,6 +83,18 @@ COUNTRY_RISK_INDEX: dict[str, dict] = {
         "source_cpi": "Transparency International CPI 2025",
         "source_lpi": "World Bank LPI 2023",
     },
+    "Indonesia": {
+        "cpi_score": 34,
+        "lpi_score": 3.0,
+        "source_cpi": "Transparency International CPI 2025",
+        "source_lpi": "World Bank LPI 2023",
+    },
+    "Mozambique": {
+        "cpi_score": 25,
+        "lpi_score": 2.4,
+        "source_cpi": "Transparency International CPI 2025",
+        "source_lpi": "World Bank LPI 2023",
+    },
 }
 
 # Tunable knob, exposed here so a future Streamlit slider can override it per

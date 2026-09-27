@@ -50,6 +50,9 @@ HORIZON_DAYS: int = 30
 
 #  Voyage Cost Parameters (Phase 3) 
 DEMURRAGE_USD_PER_DAY: float = 15000.0
+# Bunker Fuel Prices
+# Source: Ship & Bunker Global 20 Ports Average (Sept 2026 approximation)
+# VLSFO: Very Low Sulfur Fuel Oil (compliant with IMO 2020 0.50% sulfur cap)
 VLSFO_PRICE_USD_MT: float = 600.0
 MGO_PRICE_USD_MT: float = 800.0
 
@@ -111,6 +114,7 @@ VESSELS: list[dict] = [
         "vessel_name": "MV TS INDEX",
         "vessel_type": "Handysize",
         "capacity_dwt": 38_854,
+        "loa_m": 180.0,
         "min_cargo_dwt": 33_000,       # ~85 % of DWT — Alpha assumption
         "laden_speed_kn": 13.5,
         "ballast_speed_kn": 14.0,
@@ -123,6 +127,7 @@ VESSELS: list[dict] = [
         "vessel_name": "MV LOFTY MOUNTAIN",
         "vessel_type": "Supramax",
         "capacity_dwt": 51_008,
+        "loa_m": 189.9,
         "min_cargo_dwt": 43_000,       # ~85 % of DWT — Alpha assumption
         "laden_speed_kn": 13.5,
         "ballast_speed_kn": 14.5,
@@ -135,6 +140,7 @@ VESSELS: list[dict] = [
         "vessel_name": "MV IMPERIAL FORTUNE",
         "vessel_type": "Supramax",
         "capacity_dwt": 53_505,
+        "loa_m": 189.9,
         "min_cargo_dwt": 45_000,       # ~85 % of DWT — Alpha assumption
         "laden_speed_kn": 13.5,
         "ballast_speed_kn": 14.0,
@@ -147,6 +153,7 @@ VESSELS: list[dict] = [
         "vessel_name": "MV VIENNA WOOD N",
         "vessel_type": "Supramax",
         "capacity_dwt": 55_768,
+        "loa_m": 189.9,
         "min_cargo_dwt": 47_000,       # ~85 % of DWT — Alpha assumption
         "laden_speed_kn": 14.0,
         "ballast_speed_kn": 14.5,
@@ -159,6 +166,7 @@ VESSELS: list[dict] = [
         "vessel_name": "MV NORTH QUAY",
         "vessel_type": "Supramax",
         "capacity_dwt": 57_016,
+        "loa_m": 189.9,
         "min_cargo_dwt": 48_000,       # ~85 % of DWT — Alpha assumption
         "laden_speed_kn": 13.0,
         "ballast_speed_kn": 13.5,

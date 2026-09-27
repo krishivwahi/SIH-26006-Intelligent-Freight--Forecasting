@@ -1,0 +1,110 @@
+{
+  "global_importance": [
+    {
+      "feature": "dxy_rmean_30",
+      "importance": 124.6968
+    },
+    {
+      "feature": "dxy_rmean_14",
+      "importance": 97.7228
+    },
+    {
+      "feature": "horizon_step",
+      "importance": 91.6983
+    },
+    {
+      "feature": "sp500",
+      "importance": 46.5632
+    },
+    {
+      "feature": "gscpi_rmean_30",
+      "importance": 32.6028
+    },
+    {
+      "feature": "freight_rate_mom_14",
+      "importance": 30.3614
+    },
+    {
+      "feature": "freight_rate_rstd_14",
+      "importance": 22.324
+    },
+    {
+      "feature": "dxy_lag_14",
+      "importance": 17.1292
+    },
+    {
+      "feature": "iron_ore_rstd_30",
+      "importance": 16.3726
+    },
+    {
+      "feature": "dxy",
+      "importance": 13.1697
+    }
+  ],
+  "local_attribution": {
+    "base_value": 1741.7237,
+    "predicted_value": 2600.2544,
+    "top_contributions": [
+      {
+        "feature": "dxy_rmean_30",
+        "feature_value": 119.5888,
+        "shap_value": 125.59,
+        "abs_shap": 125.59003931235553
+      },
+      {
+        "feature": "dxy_rmean_14",
+        "feature_value": 120.271,
+        "shap_value": 100.4285,
+        "abs_shap": 100.42853580160859
+      },
+      {
+        "feature": "ifo380_price_lag_7",
+        "feature_value": 787.0,
+        "shap_value": 98.1633,
+        "abs_shap": 98.16328559922908
+      },
+      {
+        "feature": "wti_rstd_7",
+        "feature_value": 7.2703,
+        "shap_value": 53.7197,
+        "abs_shap": 53.71970051514861
+      },
+      {
+        "feature": "sp500",
+        "feature_value": 6824.66,
+        "shap_value": 52.9868,
+        "abs_shap": 52.986766588337694
+      },
+      {
+        "feature": "horizon_step",
+        "feature_value": 1.0,
+        "shap_value": -51.661,
+        "abs_shap": 51.66098512236433
+      },
+      {
+        "feature": "wti",
+        "feature_value": 99.62,
+        "shap_value": 37.5309,
+        "abs_shap": 37.5309498253781
+      },
+      {
+        "feature": "ifo380_price_rmean_30",
+        "feature_value": 716.5833,
+        "shap_value": 29.3847,
+        "abs_shap": 29.384708579927015
+      },
+      {
+        "feature": "ifo380_price_rstd_30",
+        "feature_value": 160.1782,
+        "shap_value": 28.438,
+        "abs_shap": 28.438017760525266
+      },
+      {
+        "feature": "freight_rate_rmean_30",
+        "feature_value": 2308.1333,
+        "shap_value": 25.393,
+        "abs_shap": 25.392987148605947
+      }
+    ]
+  }
+}

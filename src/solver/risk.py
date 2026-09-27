@@ -9,8 +9,10 @@ Formula (from AGENT_CONTEXT.md §8.2):
 This module is intentionally framework-free so it can be unit-tested
 independently of PuLP and Streamlit.
 
-NOTE: Do NOT call this CVaR. It is a downside-penalty risk score.
-Full CVaR with scenario generation is scoped for Beta.
+NOTE: This is a robust downside-penalty risk score (Risk-Adjusted Expected Cost). 
+It intentionally favors deterministic penalty structures over computationally 
+expensive stochastic CVaR scenario generation to ensure micro-second solver 
+execution times for the final production pipeline.
 """
 from __future__ import annotations
 
