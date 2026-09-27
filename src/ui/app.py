@@ -161,11 +161,23 @@ st.markdown(
         padding-top: 1.1rem;
         padding-bottom: 1.2rem;
     }
-    [data-testid="stSidebar"] * { color: #f4f4f2 !important; opacity: 1 !important; }
+    
+    [data-testid="stSidebar"] button,
+    [data-testid="stSidebar"] button * {
+        color: #f4f4f2 !important;
+    }
+    
+    /* Fix for broken Streamlit icons rendering as raw text */
+    [data-testid="collapsedControl"] button,
+    [data-testid="stSidebarCollapseButton"] button,
+    [data-testid="collapsedControl"] *,
+    [data-testid="stSidebarCollapseButton"] * {
+        font-family: "Material Symbols Rounded", sans-serif !important;
+    }
     [data-testid="stSidebar"] hr { border-color: #2d2f32 !important; opacity: 1 !important; }
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"] *,
-    [data-testid="stSidebar"] small { color: #a8adb4 !important; opacity: 1 !important; }
+    [data-testid="stSidebar"] small { color: #a8adb4 !important; }
     [data-testid="stSidebar"] [data-testid="stSlider"] label,
     [data-testid="stSidebar"] [data-testid="stSlider"] label *,
     [data-testid="stSidebar"] [data-testid="stSlider"] p { color: #f4f4f2 !important; opacity: 1 !important; }
